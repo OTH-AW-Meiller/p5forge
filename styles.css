@@ -52,8 +52,62 @@ body::before {
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
   box-shadow: 0 0 0 1px rgba(20, 240, 143, 0.06), 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 0 26px rgba(20, 240, 143, 0.08);
   backdrop-filter: blur(3px);
+}
+
+.brand-mark {
+  flex: 0 0 auto;
+  width: 68px;
+  height: 68px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 30% 25%, rgba(0, 252, 168, 0.25), transparent 58%), rgba(3, 14, 19, 0.75);
+  border: 1px solid rgba(0, 252, 168, 0.35);
+  box-shadow: 0 0 18px rgba(0, 252, 168, 0.22), inset 0 0 22px rgba(0, 217, 255, 0.16);
+  display: grid;
+  place-items: center;
+}
+
+.brand-mark svg {
+  width: 56px;
+  height: 56px;
+  filter: drop-shadow(0 0 8px rgba(0, 252, 168, 0.45));
+}
+
+.logo-frame {
+  fill: rgba(2, 10, 14, 0.35);
+  stroke: rgba(0, 252, 168, 0.55);
+  stroke-width: 3;
+}
+
+.logo-scan {
+  fill: none;
+  stroke: rgba(0, 252, 168, 0.38);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.logo-wave {
+  fill: none;
+  stroke: url(#forgePulse);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-tag {
+  fill: rgba(0, 252, 168, 0.9);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
+}
+
+.topbar-text {
+  min-width: 0;
 }
 
 .topbar h1 {
@@ -99,6 +153,27 @@ button {
   box-shadow: 0 0 16px var(--glow);
 }
 
+.btn-secondary {
+  background: rgba(9, 27, 35, 0.85);
+  color: #88e9bc;
+}
+
+.btn-secondary:hover {
+  background: rgba(11, 40, 50, 0.95);
+}
+
+.btn-danger {
+  background: rgba(125, 18, 31, 0.92);
+  border-color: rgba(255, 97, 126, 0.62);
+  color: #ffdbe3;
+  box-shadow: 0 0 14px rgba(255, 74, 114, 0.32);
+}
+
+.btn-danger:hover {
+  background: rgba(162, 24, 43, 0.96);
+  box-shadow: 0 0 18px rgba(255, 74, 114, 0.48);
+}
+
 #btnRun:hover {
   background: var(--button-hover);
   box-shadow: 0 0 22px rgba(20, 240, 143, 0.56);
@@ -110,11 +185,13 @@ button:hover {
 
 .preview-panel iframe {
   width: 100%;
-  min-height: 500px;
+  height: 420px;
+  max-height: 72vh;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #ffffff;
+  background: #061118;
   box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
 }
 
 .editors {
@@ -156,25 +233,6 @@ button:hover {
   border-bottom: 1px solid rgba(20, 240, 143, 0.26);
 }
 
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.dot.red {
-  background: #f76e6e;
-}
-
-.dot.yellow {
-  background: #ffcc66;
-}
-
-.dot.green {
-  background: #59e390;
-}
-
 .editor-label {
   margin-left: 8px;
   color: #7adbb5;
@@ -183,11 +241,31 @@ button:hover {
   text-transform: uppercase;
 }
 
+.editor-name-input {
+  margin-left: 8px;
+  width: min(280px, 70%);
+  border: 1px solid rgba(20, 240, 143, 0.3);
+  border-radius: 6px;
+  background: rgba(3, 17, 22, 0.85);
+  color: #9dfacd;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  padding: 4px 8px;
+  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
+}
+
+.editor-name-input:focus {
+  outline: none;
+  border-color: rgba(20, 240, 143, 0.7);
+  box-shadow: 0 0 0 2px rgba(20, 240, 143, 0.2);
+}
+
 .editor-body {
   display: grid;
   grid-template-columns: 52px 1fr;
   min-height: 54vh;
   background: var(--editor-bg);
+  align-items: start;
 }
 
 #lineNumbers {
@@ -208,7 +286,7 @@ button:hover {
 #inputCode {
   width: 100%;
   min-height: 54vh;
-  resize: vertical;
+  resize: none;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -218,6 +296,7 @@ button:hover {
   font-size: 0.9rem;
   line-height: 1.5;
   caret-color: #d7ffe8;
+  overflow: hidden;
 }
 
 #inputCode:focus {
@@ -231,9 +310,66 @@ button:hover {
   padding: 10px 12px;
   color: var(--muted);
   letter-spacing: 0.04em;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.statusbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgba(0, 252, 168, 0.08) 35%, rgba(0, 217, 255, 0.3) 50%, rgba(0, 252, 168, 0.1) 65%, transparent 100%);
+  transform: translateX(-120%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.statusbar.statusbar-flash::before {
+  animation: statusbarSweep 760ms ease-out 1;
+}
+
+#statusText {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes statusbarSweep {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+
+  15% {
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
 }
 
 @media (max-width: 900px) {
+  .topbar {
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 56px;
+    height: 56px;
+  }
+
+  .brand-mark svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .topbar h1 {
+    font-size: 1.55rem;
+  }
+
   .editors {
     grid-template-columns: 1fr;
   }

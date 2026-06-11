@@ -9,12 +9,36 @@
   <body>
     <main class="app-shell">
       <header class="topbar">
-        <h1>p5forge</h1>
-        <p>Processing(Java)-style to p5.js JavaScript directly in the browser</p>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 120 120" role="img" focusable="false">
+            <defs>
+              <linearGradient id="forgePulse" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00fca8" />
+                <stop offset="100%" stop-color="#00d9ff" />
+              </linearGradient>
+            </defs>
+            <rect x="6" y="6" width="108" height="108" rx="14" class="logo-frame" />
+            <path d="M20 34h80M20 86h80" class="logo-scan" />
+            <path d="M26 60h10l8-14 8 28 8-20 8 14h26" class="logo-wave" />
+            <text x="60" y="102" text-anchor="middle" class="logo-tag">P5</text>
+          </svg>
+        </div>
+        <div class="topbar-text">
+          <h1>p5forge</h1>
+          <p>Processing(Java)-style to p5.js JavaScript directly in the browser</p>
+        </div>
       </header>
 
       <section class="toolbar">
+        <input id="fileInputPde" type="file" accept=".pde,text/plain" hidden />
+        <button id="btnLoad" class="btn-secondary" type="button">Load .pde</button>
+        <button id="btnSave" class="btn-secondary" type="button">Save .pde</button>
+        <button id="btnStop" class="btn-danger" type="button" hidden>Stop</button>
         <button id="btnRun" type="button">Run</button>
+      </section>
+
+      <section class="statusbar">
+        <span id="statusText">Ready.</span>
       </section>
 
       <section class="editors">
@@ -22,10 +46,7 @@
           <h2>Input (Processing-style)</h2>
           <div class="editor-shell">
             <div class="editor-toolbar">
-              <span class="dot red"></span>
-              <span class="dot yellow"></span>
-              <span class="dot green"></span>
-              <span class="editor-label">sketch.processing</span>
+              <input id="sketchName" class="editor-name-input" type="text" value="sketch.pde" aria-label="Sketch file name" />
             </div>
             <div class="editor-body">
               <pre id="lineNumbers" aria-hidden="true">1</pre>
@@ -40,9 +61,6 @@
         </article>
       </section>
 
-      <footer class="statusbar">
-        <span id="statusText">Ready.</span>
-      </footer>
     </main>
 
     <script type="module" src="./src/browser-app.js"></script>
