@@ -48,8 +48,16 @@ Features:
 
 - Hacker-themed UI with a code editor look
 - Input on the left, live p5.js preview on the right
-- One `Run` button for transpile + render
-- Shortcut: `Cmd/Ctrl + Enter`
+- One toggle `Run/Stop` button for transpile + preview control
+- Shortcuts:
+  - `F5` to toggle run/stop
+- Lightweight Processing autocomplete in the editor:
+  - Command suggestions while typing
+  - Signature details (for example `line(x1, y1, x2, y2)`)
+  - Template insertion (for example `setup() { ... }`)
+  - Per-suggestion `?` help button opening the matching Processing reference page
+- Preview auto-stops when code is edited
+- Toolbar `Help` button opens: https://processing.org/reference/
 - p5 loading strategy in preview:
   - Try local `vendor/p5.min.js` first (if present)
   - Automatically fall back to CDN if local file is missing
