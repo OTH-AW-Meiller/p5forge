@@ -301,6 +301,7 @@ button:hover {
   min-height: 54vh;
   background: var(--editor-bg);
   align-items: start;
+  position: relative;
 }
 
 #lineNumbers {
@@ -348,6 +349,54 @@ button:hover {
 
 #inputCode:focus {
   outline: none;
+}
+
+.editor-autocomplete {
+  position: absolute;
+  z-index: 30;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: rgba(4, 16, 22, 0.98);
+  border: 1px solid rgba(20, 240, 143, 0.45);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.42), 0 0 16px rgba(20, 240, 143, 0.15);
+  padding: 4px;
+}
+
+.editor-autocomplete-item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #a5f8cf;
+  text-align: left;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.editor-autocomplete-item:hover,
+.editor-autocomplete-item.is-active {
+  background: rgba(20, 240, 143, 0.18);
+  color: #d9ffe9;
+}
+
+.editor-autocomplete-label {
+  display: block;
+  font-weight: 700;
+}
+
+.editor-autocomplete-detail {
+  display: block;
+  margin-top: 2px;
+  color: rgba(149, 232, 195, 0.78);
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
 }
 
 .statusbar {

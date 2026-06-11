@@ -12,9 +12,14 @@ export function bindGlobalHotkeys({ onToggleRun }) {
 export function bindEditorKeyHandlers({
   inputCode,
   onRun,
+  autocomplete,
   onAfterEdit
 }) {
   inputCode.addEventListener("keydown", (event) => {
+    if (autocomplete && autocomplete.handleKeydown(event)) {
+      return;
+    }
+
     if (event.key === "Tab") {
       event.preventDefault();
 
@@ -98,6 +103,9 @@ export function bindEditorKeyHandlers({
       }
 
       onAfterEdit();
+      if (autocomplete) {
+        autocomplete.handleInput();
+      }
       return;
     }
 

@@ -2,6 +2,7 @@ import { transpileProcessingToJs } from "./transpiler.js";
 import { transpileProcessingApiToP5 } from "./p5-post-transpiler.js";
 import { createPreviewHtml } from "./preview-template.js";
 import { bindEditorKeyHandlers, bindGlobalHotkeys } from "./keyboard-handlers.js";
+import { createEditorAutocomplete } from "./editor-autocomplete.js";
 
 const inputCode = document.getElementById("inputCode");
 const lineNumbers = document.getElementById("lineNumbers");
@@ -13,6 +14,7 @@ const btnRun = document.getElementById("btnRun");
 const statusText = document.getElementById("statusText");
 const statusBar = statusText ? statusText.closest(".statusbar") : null;
 const previewFrame = document.getElementById("previewFrame");
+const editorAutocomplete = createEditorAutocomplete({ inputCode });
 let lastStatusMessage = statusText && typeof statusText.textContent === "string" ? statusText.textContent : "";
 const SAMPLE_FILE_PATH = "./sample.pde";
 const PLAY_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6L19 12L8 18Z" /></svg>';
@@ -240,6 +242,7 @@ window.addEventListener("resize", () => {
 bindEditorKeyHandlers({
   inputCode,
   onRun: runTranspile,
+  autocomplete: editorAutocomplete,
   onAfterEdit: () => {
     updateLineNumbers();
     autoResizeEditor();
@@ -249,6 +252,7 @@ bindEditorKeyHandlers({
 
 inputCode.addEventListener("input", updateLineNumbers);
 inputCode.addEventListener("input", autoResizeEditor);
+inputCode.addEventListener("input", editorAutocomplete.handleInput);
 inputCode.addEventListener("scroll", syncLineNumberScroll);
 
 async function initializeApp() {
