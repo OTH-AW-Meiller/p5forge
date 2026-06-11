@@ -44,9 +44,58 @@ export function transpileProcessingToJs(inputCode) {
   // Convert known Java/Processing class-like declarations to JS lets.
   // Examples: "int x = 0;" -> "let x = 0;", "float a, b;" -> "let a, b;"
   code = code.replace(
-    new RegExp(`(^|\\n)(\\s*)(?:${TYPE_PATTERN})\\s+([^;\\n]+);`, "g"),
+    new RegExp(`(^|\\n)(\\s*)(?:${TYPE_PATTERN})(?:\\s*\\[\\s*\\])*\\s+([^;\\n]+);`, "g"),
     (full, leadingNewline, indent, declarationBody) => {
       return `${leadingNewline}${indent}let ${declarationBody};`;
+    }
+  );
+
+  // Convert custom class-typed declarations to JS lets.
+  // Example: UFO meinUfo; -> let meinUfo;
+  code = code.replace(
+    /(^|\n)(\s*)([A-Z][A-Za-z0-9_]*)(?:\s*\[\s*\])*\s+([^;\n]+);/g,
+    (full, leadingNewline, indent, typeName, declarationBody) => {
+      return `${leadingNewline}${indent}let ${declarationBody};`;
+    }
+  );
+
+  // Convert Java array literal declarations to JS array literals.
+  // Example: int[] arr = {1,2,3}; -> let arr = [1,2,3];
+  code = code.replace(
+    new RegExp(
+      `(^|\\n)(\\s*)(?:${TYPE_PATTERN})\\s*\\[\\s*\\]\\s+([A-Za-z_]\\w*)\\s*=\\s*\\{([^}]*)\\}\\s*;`,
+      "g"
+    ),
+    "$1$2let $3 = [$4];"
+  );
+
+  // Convert Java 2D array literal declarations to JS nested array literals.
+  // Example: int[][] arr = {{1,2,3}, {4,5,6}}; -> let arr = [[1,2,3], [4,5,6]];
+  code = code.replace(
+    new RegExp(
+      `(^|\\n)(\\s*)(?:${TYPE_PATTERN})\\s*\\[\\s*\\]\\s*\\[\\s*\\]\\s+([A-Za-z_]\\w*)\\s*=\\s*\\{([\\s\\S]*?)\\}\\s*;`,
+      "g"
+    ),
+    (full, leadingNewline, indent, varName, inner) => {
+      const normalized = inner.replace(/\}\s*,\s*\{/g, "], [").replace(/\{/g, "[").replace(/\}/g, "]");
+      return `${leadingNewline}${indent}let ${varName} = [${normalized}];`;
+    }
+  );
+
+  // Also handle the same pattern after typed declarations were already turned into let.
+  // Example: let arr = {1,2,3}; -> let arr = [1,2,3];
+  code = code.replace(
+    /(^|\n)(\s*)let\s+([A-Za-z_]\w*)\s*=\s*\{([^:{}]*)\}\s*;/g,
+    "$1$2let $3 = [$4];"
+  );
+
+  // Also handle 2D array literals after type declarations are converted to let.
+  // Example: let arr = {{1,2,3}, {4,5,6}}; -> let arr = [[1,2,3], [4,5,6]];
+  code = code.replace(
+    /(^|\n)(\s*)let\s+([A-Za-z_]\w*)\s*=\s*\{\s*\{([\s\S]*?)\}\s*\}\s*;/g,
+    (full, leadingNewline, indent, varName, inner) => {
+      const normalized = inner.replace(/\}\s*,\s*\{/g, "], [");
+      return `${leadingNewline}${indent}let ${varName} = [[${normalized}]];`;
     }
   );
 
@@ -95,6 +144,11 @@ export function transpileProcessingToJs(inputCode) {
 
   // Convert Java-style array creation to JS arrays where straightforward.
   // Example: new int[10] -> new Array(10)
+  code = code.replace(
+    /new\s+(?:int|float|double|long|short|byte|boolean|char)\s*\[\s*([^\]]+)\s*\]\s*\[\s*([^\]]+)\s*\]/g,
+    "Array.from({ length: $1 }, () => new Array($2))"
+  );
+
   code = code.replace(/new\s+(?:int|float|double|long|short|byte|boolean|char)\s*\[\s*([^\]]+)\s*\]/g, "new Array($1)");
 
   // Convert Processing println to console.log.
@@ -108,6 +162,10 @@ export function transpileProcessingToJs(inputCode) {
 
   // Remove Java casts like (int), (float), (String) in expression context.
   code = code.replace(new RegExp(`\\(\\s*(?:${TYPE_PATTERN})\\s*\\)`, "g"), "");
+
+  // Normalize syntax inside class bodies after generic rewrites.
+  // Example: "let x = 1;" -> "x = 1;", "function foo() {" -> "foo() {"
+  code = normalizeClassSyntax(code);
 
   // Clean up excessive empty lines introduced by removals.
   code = code.replace(/\n{3,}/g, "\n\n");
@@ -152,4 +210,174 @@ function stripArgTypes(argsText) {
       return nameAndMaybeDefault;
     })
     .join(", ");
+}
+
+function normalizeClassSyntax(code) {
+  const classHeaderRegex = /class\s+([A-Za-z_]\w*)(?:\s+extends\s+([A-Za-z_]\w*))?\s*\{/g;
+  const classBlocks = [];
+  let match;
+
+  while ((match = classHeaderRegex.exec(code)) !== null) {
+    const openBraceIndex = code.indexOf("{", match.index);
+    if (openBraceIndex === -1) {
+      break;
+    }
+
+    const closeBraceIndex = findMatchingBrace(code, openBraceIndex);
+    if (closeBraceIndex === -1) {
+      continue;
+    }
+
+    classBlocks.push({
+      start: match.index,
+      end: closeBraceIndex + 1,
+      className: match[1],
+      parentName: match[2] || null,
+      blockText: code.slice(match.index, closeBraceIndex + 1)
+    });
+
+    classHeaderRegex.lastIndex = closeBraceIndex + 1;
+  }
+
+  if (classBlocks.length === 0) {
+    return code;
+  }
+
+  const ownFieldsByClass = new Map();
+  for (const cls of classBlocks) {
+    ownFieldsByClass.set(cls.className, collectOwnClassFields(cls.blockText));
+  }
+
+  const allFieldsByClass = new Map();
+  const visiting = new Set();
+  const resolveFields = (className) => {
+    if (allFieldsByClass.has(className)) {
+      return allFieldsByClass.get(className);
+    }
+
+    if (visiting.has(className)) {
+      return ownFieldsByClass.get(className) || new Set();
+    }
+
+    visiting.add(className);
+
+    const classInfo = classBlocks.find((c) => c.className === className);
+    const own = ownFieldsByClass.get(className) || new Set();
+    const merged = new Set(own);
+
+    if (classInfo && classInfo.parentName && ownFieldsByClass.has(classInfo.parentName)) {
+      const parentFields = resolveFields(classInfo.parentName);
+      for (const fieldName of parentFields) {
+        merged.add(fieldName);
+      }
+    }
+
+    visiting.delete(className);
+    allFieldsByClass.set(className, merged);
+    return merged;
+  };
+
+  for (const cls of classBlocks) {
+    resolveFields(cls.className);
+  }
+
+  let result = "";
+  let lastIndex = 0;
+
+  for (const cls of classBlocks) {
+    result += code.slice(lastIndex, cls.start);
+    result += normalizeSingleClassBlock(cls.blockText, cls.className, allFieldsByClass.get(cls.className));
+    lastIndex = cls.end;
+  }
+
+  result += code.slice(lastIndex);
+  return result;
+}
+
+function findMatchingBrace(text, openBraceIndex) {
+  let depth = 0;
+  for (let i = openBraceIndex; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "{") {
+      depth += 1;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
+
+function normalizeSingleClassBlock(blockText, className, inheritedFields = new Set()) {
+  const lines = blockText.split("\n");
+  let depth = 0;
+  const fieldNames = new Set(inheritedFields);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (depth === 1) {
+      lines[i] = line
+        .replace(/^(\s*)let\s+([^;]+);(\s*)$/, "$1$2;$3")
+        .replace(/^(\s*)function\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*\{(\s*)$/, "$1$2($3) {$4");
+
+      const constructorRegex = new RegExp(`^(\\s*)${className}\\s*\\(([^)]*)\\)\\s*\\{(\\s*)$`);
+      lines[i] = lines[i].replace(constructorRegex, (full, indent, args, tail) => {
+        return `${indent}constructor(${stripArgTypes(args)}) {${tail}`;
+      });
+
+      const fieldMatch = lines[i].match(/^\s*([A-Za-z_]\w*)\s*(?:=[^;]*)?;\s*$/);
+      if (fieldMatch) {
+        fieldNames.add(fieldMatch[1]);
+      }
+    } else if (depth >= 2 && fieldNames.size > 0) {
+      let rewritten = lines[i];
+      for (const fieldName of fieldNames) {
+        if (rewritten.includes(`let ${fieldName}`) || rewritten.includes(`const ${fieldName}`) || rewritten.includes(`var ${fieldName}`)) {
+          continue;
+        }
+
+        const fieldUseRegex = new RegExp(`(?<![\\w$.])${fieldName}(?![\\w])`, "g");
+        rewritten = rewritten.replace(fieldUseRegex, `this.${fieldName}`);
+      }
+      lines[i] = rewritten;
+    }
+
+    depth += countChar(line, "{");
+    depth -= countChar(line, "}");
+  }
+
+  return lines.join("\n");
+}
+
+function collectOwnClassFields(blockText) {
+  const lines = blockText.split("\n");
+  let depth = 0;
+  const fieldNames = new Set();
+
+  for (const line of lines) {
+    if (depth === 1) {
+      const fieldMatch = line.match(/^\s*(?:let\s+)?([A-Za-z_]\w*)\s*(?:=[^;]*)?;\s*$/);
+      if (fieldMatch) {
+        fieldNames.add(fieldMatch[1]);
+      }
+    }
+
+    depth += countChar(line, "{");
+    depth -= countChar(line, "}");
+  }
+
+  return fieldNames;
+}
+
+function countChar(text, ch) {
+  let count = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === ch) {
+      count += 1;
+    }
+  }
+  return count;
 }
