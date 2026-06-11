@@ -30,11 +30,15 @@
       </header>
 
       <section class="toolbar">
-        <input id="fileInputPde" type="file" accept=".pde,text/plain" hidden />
-        <button id="btnLoad" class="btn-secondary" type="button">Load .pde</button>
-        <button id="btnSave" class="btn-secondary" type="button">Save .pde</button>
-        <button id="btnStop" class="btn-danger" type="button" hidden>Stop</button>
-        <button id="btnRun" type="button">Run</button>
+          <button id="btnRun" class="icon-btn" type="button" aria-label="Run preview" title="Run (F5)">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M8 6L19 12L8 18Z" />
+                </svg>
+            </button>
+            <span class="hotkey-hint" aria-hidden="true">F5</span>
+            <input id="fileInputPde" type="file" accept=".pde,text/plain" hidden />
+            <button id="btnLoad" class="btn-secondary" type="button">Load .pde</button>
+            <button id="btnSave" class="btn-secondary" type="button">Save .pde</button>
       </section>
 
       <section class="statusbar">

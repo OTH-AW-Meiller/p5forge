@@ -153,6 +153,36 @@ button {
   box-shadow: 0 0 16px var(--glow);
 }
 
+#btnRun.btn-danger {
+  background: rgba(125, 18, 31, 0.92);
+  border-color: rgba(255, 97, 126, 0.62);
+  color: #ffdbe3;
+  box-shadow: 0 0 14px rgba(255, 74, 114, 0.32);
+}
+
+.icon-btn {
+  width: 46px;
+  height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.hotkey-hint {
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  font-size: 0.86rem;
+  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
+  padding: 0 4px;
+}
+
 .btn-secondary {
   background: rgba(9, 27, 35, 0.85);
   color: #88e9bc;
@@ -177,6 +207,11 @@ button {
 #btnRun:hover {
   background: var(--button-hover);
   box-shadow: 0 0 22px rgba(20, 240, 143, 0.56);
+}
+
+#btnRun.btn-danger:hover {
+  background: rgba(162, 24, 43, 0.96);
+  box-shadow: 0 0 18px rgba(255, 74, 114, 0.48);
 }
 
 button:hover {
@@ -284,17 +319,29 @@ button:hover {
 }
 
 #inputCode {
+  --code-font-size: 0.9rem;
+  --code-line-height: 1.5;
+  --code-line-step: calc(var(--code-font-size) * var(--code-line-height));
   width: 100%;
   min-height: 54vh;
   resize: none;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(20, 240, 143, 0.028) 0,
+    rgba(20, 240, 143, 0.028) var(--code-line-step),
+    rgba(0, 217, 255, 0.045) var(--code-line-step),
+    rgba(0, 217, 255, 0.045) calc(var(--code-line-step) * 2)
+  );
+  background-origin: content-box;
+  background-clip: content-box;
   color: var(--editor-ink);
   padding: 12px;
   font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: var(--code-font-size);
+  line-height: var(--code-line-height);
   caret-color: #d7ffe8;
   overflow: hidden;
 }

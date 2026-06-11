@@ -59,6 +59,19 @@ export function transpileProcessingToJs(inputCode) {
     }
   );
 
+  // Convert generic custom type declarations to JS lets.
+  // Example: HashMap<String, Integer> hm = new HashMap<String, Integer>(); -> let hm = new HashMap<String, Integer>();
+  code = code.replace(
+    /(^|\n)(\s*)([A-Z][A-Za-z0-9_]*\s*<[^>\n]+>)(?:\s*\[\s*\])*\s+([^;\n]+);/g,
+    (full, leadingNewline, indent, typeName, declarationBody) => {
+      return `${leadingNewline}${indent}let ${declarationBody};`;
+    }
+  );
+
+  // Strip Java generic constructor annotations that are invalid JS.
+  // Example: new HashMap<String, Integer>() -> new HashMap()
+  code = code.replace(/new\s+([A-Za-z_][\w.]*)\s*<[^>\n]+>\s*\(/g, "new $1(");
+
   // Convert Java array literal declarations to JS array literals.
   // Example: int[] arr = {1,2,3}; -> let arr = [1,2,3];
   code = code.replace(
@@ -108,9 +121,10 @@ export function transpileProcessingToJs(inputCode) {
 
   // Convert Java enhanced for-loops to JS for...of loops.
   // Example: for (int n : nums) -> for (const n of nums)
+  const enhancedForTypePattern = `(?:${TYPE_PATTERN}|[A-Za-z_][\\w.]*(?:\\s*<[^>\\n]+>)?(?:\\s*\\[\\s*\\])*)`;
   code = code.replace(
     new RegExp(
-      `for\\s*\\(\\s*(?:${TYPE_PATTERN}|[A-Za-z_][\\w<>\\[\\]]*)\\s+([A-Za-z_]\\w*)\\s*:\\s*([^\\)]+)\\)` ,
+      `for\\s*\\(\\s*${enhancedForTypePattern}\\s+([A-Za-z_]\\w*)\\s*:\\s*([^\\)]+)\\)` ,
       "g"
     ),
     "for (const $1 of $2)"
