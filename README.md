@@ -6,6 +6,12 @@ A pragmatic transpiler that converts Processing(Java)-style code to JavaScript f
 
 This is not a full Java compiler. It focuses on practical conversions that make Processing-style sketches run in p5.js quickly.
 
+## Live Demo
+
+GitHub Pages URL:
+
+https://oth-aw-meiller.github.io/p5forge/
+
 ## Features (Best Effort)
 
 - 2-stage conversion:
@@ -33,12 +39,6 @@ This is not a full Java compiler. It focuses on practical conversions that make 
 ```bash
 npm install
 ```
-
-## Live Demo
-
-GitHub Pages URL:
-
-https://oth-aw-meiller.github.io/p5forge/
 
 ## Browser Version (No Terminal)
 
