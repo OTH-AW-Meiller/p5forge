@@ -80,6 +80,10 @@ function measureCharWidth(inputCode) {
   return Math.max(6, ctx.measureText("M").width);
 }
 
+function getProcessingReferenceUrl(entryName) {
+  return `https://processing.org/reference/${entryName}_.html`;
+}
+
 export function createEditorAutocomplete({ inputCode }) {
   const menu = document.createElement("div");
   menu.className = "editor-autocomplete";
@@ -113,7 +117,8 @@ export function createEditorAutocomplete({ inputCode }) {
         const isActive = index === activeIndex;
         const label = escapeHtml(entry.insert);
         const detail = escapeHtml(entry.detail);
-        return `<button type="button" class="editor-autocomplete-item${isActive ? " is-active" : ""}" data-index="${index}" role="option" aria-selected="${isActive ? "true" : "false"}"><span class="editor-autocomplete-label">${label}</span><span class="editor-autocomplete-detail">${detail}</span></button>`;
+        const refUrl = escapeHtml(getProcessingReferenceUrl(entry.insert));
+        return `<div class="editor-autocomplete-item${isActive ? " is-active" : ""}" data-index="${index}" role="option" aria-selected="${isActive ? "true" : "false"}"><span class="editor-autocomplete-text"><span class="editor-autocomplete-label">${label}</span><span class="editor-autocomplete-detail">${detail}</span></span><button type="button" class="editor-autocomplete-help" data-url="${refUrl}" title="Open Processing reference" aria-label="Open help for ${label}">?</button></div>`;
       })
       .join("");
 
@@ -220,6 +225,16 @@ export function createEditorAutocomplete({ inputCode }) {
 
   menu.addEventListener("mousedown", (event) => {
     event.preventDefault();
+
+    const helpButton = event.target.closest(".editor-autocomplete-help");
+    if (helpButton) {
+      const url = helpButton.dataset.url;
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+
     const target = event.target.closest(".editor-autocomplete-item");
     if (!target) {
       return;

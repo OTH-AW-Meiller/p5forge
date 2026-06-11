@@ -10,6 +10,7 @@ const sketchName = document.getElementById("sketchName");
 const fileInputPde = document.getElementById("fileInputPde");
 const btnLoad = document.getElementById("btnLoad");
 const btnSave = document.getElementById("btnSave");
+const btnHelp = document.getElementById("btnHelp");
 const btnRun = document.getElementById("btnRun");
 const statusText = document.getElementById("statusText");
 const statusBar = statusText ? statusText.closest(".statusbar") : null;
@@ -121,6 +122,10 @@ function triggerLoadPde() {
   fileInputPde.click();
 }
 
+function openProcessingReference() {
+  window.open("https://processing.org/reference/", "_blank", "noopener,noreferrer");
+}
+
 async function handleLoadPde(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) {
@@ -212,6 +217,7 @@ function updatePreview(jsCode) {
 
 btnLoad.addEventListener("click", triggerLoadPde);
 btnSave.addEventListener("click", savePde);
+btnHelp.addEventListener("click", openProcessingReference);
 btnRun.addEventListener("click", togglePreviewRunState);
 fileInputPde.addEventListener("change", handleLoadPde);
 
