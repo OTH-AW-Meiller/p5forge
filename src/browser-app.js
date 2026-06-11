@@ -117,6 +117,13 @@ function togglePreviewRunState() {
   runTranspile();
 }
 
+function stopPreviewOnEdit() {
+  if (btnRun.dataset.running === "true") {
+    stopPreview();
+    setStatus("Preview stopped. Code changed.");
+  }
+}
+
 function triggerLoadPde() {
   fileInputPde.value = "";
   fileInputPde.click();
@@ -250,12 +257,14 @@ bindEditorKeyHandlers({
   onRun: runTranspile,
   autocomplete: editorAutocomplete,
   onAfterEdit: () => {
+    stopPreviewOnEdit();
     updateLineNumbers();
     autoResizeEditor();
     syncLineNumberScroll();
   }
 });
 
+inputCode.addEventListener("input", stopPreviewOnEdit);
 inputCode.addEventListener("input", updateLineNumbers);
 inputCode.addEventListener("input", autoResizeEditor);
 inputCode.addEventListener("input", editorAutocomplete.handleInput);
