@@ -1,47 +1,47 @@
 const PROCESSING_SUGGESTIONS = [
-  { insert: "setup", detail: "event: setup()", appendParen: false },
-  { insert: "draw", detail: "event: draw()", appendParen: false },
-  { insert: "mousePressed", detail: "event: mousePressed()", appendParen: false },
-  { insert: "mouseMoved", detail: "event: mouseMoved()", appendParen: false },
-  { insert: "mouseDragged", detail: "event: mouseDragged()", appendParen: false },
-  { insert: "keyPressed", detail: "event: keyPressed()", appendParen: false },
-  { insert: "keyReleased", detail: "event: keyReleased()", appendParen: false },
-  { insert: "size", detail: "size(w, h)", appendParen: true },
-  { insert: "background", detail: "background(gray | r, g, b)", appendParen: true },
-  { insert: "fill", detail: "fill(gray | r, g, b)", appendParen: true },
-  { insert: "stroke", detail: "stroke(gray | r, g, b)", appendParen: true },
-  { insert: "noStroke", detail: "noStroke()", appendParen: true },
-  { insert: "noFill", detail: "noFill()", appendParen: true },
-  { insert: "rect", detail: "rect(x, y, w, h)", appendParen: true },
-  { insert: "ellipse", detail: "ellipse(x, y, w, h)", appendParen: true },
-  { insert: "circle", detail: "circle(x, y, d)", appendParen: true },
-  { insert: "line", detail: "line(x1, y1, x2, y2)", appendParen: true },
-  { insert: "triangle", detail: "triangle(x1, y1, x2, y2, x3, y3)", appendParen: true },
-  { insert: "quad", detail: "quad(x1, y1, x2, y2, x3, y3, x4, y4)", appendParen: true },
-  { insert: "beginShape", detail: "beginShape()", appendParen: true },
-  { insert: "endShape", detail: "endShape([CLOSE])", appendParen: true },
-  { insert: "vertex", detail: "vertex(x, y)", appendParen: true },
-  { insert: "bezier", detail: "bezier(...)", appendParen: true },
-  { insert: "curve", detail: "curve(...)", appendParen: true },
-  { insert: "text", detail: "text(str, x, y)", appendParen: true },
-  { insert: "textSize", detail: "textSize(size)", appendParen: true },
-  { insert: "textAlign", detail: "textAlign(HORIZ, [VERT])", appendParen: true },
-  { insert: "image", detail: "image(img, x, y)", appendParen: true },
-  { insert: "loadImage", detail: "loadImage(path)", appendParen: true },
-  { insert: "translate", detail: "translate(x, y)", appendParen: true },
-  { insert: "rotate", detail: "rotate(angle)", appendParen: true },
-  { insert: "scale", detail: "scale(s)", appendParen: true },
-  { insert: "push", detail: "push()", appendParen: true },
-  { insert: "pop", detail: "pop()", appendParen: true },
-  { insert: "random", detail: "random(max | min, max)", appendParen: true },
-  { insert: "noise", detail: "noise(x[, y[, z]])", appendParen: true },
-  { insert: "map", detail: "map(value, a1, a2, b1, b2)", appendParen: true },
-  { insert: "constrain", detail: "constrain(v, min, max)", appendParen: true },
-  { insert: "dist", detail: "dist(x1, y1, x2, y2)", appendParen: true },
-  { insert: "colorMode", detail: "colorMode(mode, ...)", appendParen: true },
-  { insert: "frameRate", detail: "frameRate(fps)", appendParen: true },
-  { insert: "println", detail: "println(value)", appendParen: true },
-  { insert: "print", detail: "print(value)", appendParen: true }
+  { insert: "setup", detail: "event: setup()", appendText: "() {\n  \n}" },
+  { insert: "draw", detail: "event: draw()", appendText: "() {\n  \n}" },
+  { insert: "mousePressed", detail: "event: mousePressed()", appendText: "() {\n  \n}" },
+  { insert: "mouseMoved", detail: "event: mouseMoved()", appendText: "() {\n  \n}" },
+  { insert: "mouseDragged", detail: "event: mouseDragged()", appendText: "() {\n  \n}" },
+  { insert: "keyPressed", detail: "event: keyPressed()", appendText: "() {\n  \n}" },
+  { insert: "keyReleased", detail: "event: keyReleased()", appendText: "() {\n  \n}" },
+  { insert: "size", detail: "size(w, h)", appendText: "(w, h);" },
+  { insert: "background", detail: "background(gray | r, g, b)", appendText: "(gray);" },
+  { insert: "fill", detail: "fill(gray | r, g, b)", appendText: "(gray);" },
+  { insert: "stroke", detail: "stroke(gray | r, g, b)", appendText: "(gray);" },
+  { insert: "noStroke", detail: "noStroke()", appendText: "();" },
+  { insert: "noFill", detail: "noFill()", appendText: "();" },
+  { insert: "rect", detail: "rect(x, y, w, h)", appendText: "(x, y, w, h);" },
+  { insert: "ellipse", detail: "ellipse(x, y, w, h)", appendText: "(x, y, w, h);" },
+  { insert: "circle", detail: "circle(x, y, d)", appendText: "(x, y, d);" },
+  { insert: "line", detail: "line(x1, y1, x2, y2)", appendText: "(x1, y1, x2, y2);" },
+  { insert: "triangle", detail: "triangle(x1, y1, x2, y2, x3, y3)", appendText: "(x1, y1, x2, y2, x3, y3);" },
+  { insert: "quad", detail: "quad(x1, y1, x2, y2, x3, y3, x4, y4)", appendText: "(x1, y1, x2, y2, x3, y3, x4, y4);" },
+  { insert: "beginShape", detail: "beginShape()", appendText: "();" },
+  { insert: "endShape", detail: "endShape([CLOSE])", appendText: "();" },
+  { insert: "vertex", detail: "vertex(x, y)", appendText: "(x, y);" },
+  { insert: "bezier", detail: "bezier(...)", appendText: "(x1, y1, cx1, cy1, cx2, cy2, x2, y2);" },
+  { insert: "curve", detail: "curve(...)", appendText: "(x1, y1, cx1, cy1, cx2, cy2, x2, y2);" },
+  { insert: "text", detail: "text(str, x, y)", appendText: "(\"text\", x, y);" },
+  { insert: "textSize", detail: "textSize(size)", appendText: "(size);" },
+  { insert: "textAlign", detail: "textAlign(HORIZ, [VERT])", appendText: "(LEFT);" },
+  { insert: "image", detail: "image(img, x, y)", appendText: "(img, x, y);" },
+  { insert: "loadImage", detail: "loadImage(path)", appendText: "(\"path/to/image.png\");" },
+  { insert: "translate", detail: "translate(x, y)", appendText: "(x, y);" },
+  { insert: "rotate", detail: "rotate(angle)", appendText: "(angle);" },
+  { insert: "scale", detail: "scale(s)", appendText: "(s);" },
+  { insert: "push", detail: "push()", appendText: "();" },
+  { insert: "pop", detail: "pop()", appendText: "();" },
+  { insert: "random", detail: "random(max | min, max)", appendText: "(max)" },
+  { insert: "noise", detail: "noise(x[, y[, z]])", appendText: "(x)" },
+  { insert: "map", detail: "map(value, a1, a2, b1, b2)", appendText: "(value, a1, a2, b1, b2)" },
+  { insert: "constrain", detail: "constrain(v, min, max)", appendText: "(v, min, max)" },
+  { insert: "dist", detail: "dist(x1, y1, x2, y2)", appendText: "(x1, y1, x2, y2)" },
+  { insert: "colorMode", detail: "colorMode(mode, ...)", appendText: "(RGB, 255);" },
+  { insert: "frameRate", detail: "frameRate(fps)", appendText: "(60);" },
+  { insert: "println", detail: "println(value)", appendText: "(value);" },
+  { insert: "print", detail: "print(value)", appendText: "(value);" }
 ];
 
 function escapeHtml(text) {
@@ -82,6 +82,16 @@ function measureCharWidth(inputCode) {
 
 function getProcessingReferenceUrl(entryName) {
   return `https://processing.org/reference/${entryName}_.html`;
+}
+
+function getCaretOffsetForAppend(appendText) {
+  const blockMarker = "\n  \n}";
+  const blockIndex = appendText.indexOf(blockMarker);
+  if (blockIndex !== -1) {
+    return blockIndex + 3;
+  }
+
+  return appendText.length;
 }
 
 export function createEditorAutocomplete({ inputCode }) {
@@ -177,12 +187,11 @@ export function createEditorAutocomplete({ inputCode }) {
     const suggestion = visibleSuggestions[index];
     const before = inputCode.value.slice(0, lastTokenRange.start);
     const after = inputCode.value.slice(lastTokenRange.end);
-    const nextChar = after.charAt(0);
-    const shouldAddParen = suggestion.appendParen && nextChar !== "(";
-    const insertion = shouldAddParen ? `${suggestion.insert}(` : suggestion.insert;
+    const appendText = suggestion.appendText || "";
+    const insertion = `${suggestion.insert}${appendText}`;
 
     inputCode.value = `${before}${insertion}${after}`;
-    const caret = before.length + insertion.length;
+    const caret = before.length + suggestion.insert.length + getCaretOffsetForAppend(appendText);
     inputCode.selectionStart = caret;
     inputCode.selectionEnd = caret;
 
