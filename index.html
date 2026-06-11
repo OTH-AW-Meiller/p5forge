@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>p5forge Browser Transpiler</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <h1>p5forge</h1>
+        <p>Processing(Java)-style to p5.js JavaScript directly in the browser</p>
+      </header>
+
+      <section class="toolbar">
+        <button id="btnRun" type="button">Run</button>
+      </section>
+
+      <section class="editors">
+        <article class="panel editor-panel">
+          <h2>Input (Processing-style)</h2>
+          <div class="editor-shell">
+            <div class="editor-toolbar">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+              <span class="editor-label">sketch.processing</span>
+            </div>
+            <div class="editor-body">
+              <pre id="lineNumbers" aria-hidden="true">1</pre>
+              <textarea id="inputCode" spellcheck="false"></textarea>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel preview-panel">
+          <h2>p5.js Preview</h2>
+          <iframe id="previewFrame" title="p5.js Preview" sandbox="allow-scripts"></iframe>
+        </article>
+      </section>
+
+      <footer class="statusbar">
+        <span id="statusText">Ready.</span>
+      </footer>
+    </main>
+
+    <script type="module" src="./src/browser-app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "p5forge",
+  "version": "0.1.0",
+  "description": "Lightweight Processing(Java)-style to p5.js JavaScript transpiler",
+  "type": "module",
+  "bin": {
+    "p5forge": "./src/cli.js"
+  },
+  "scripts": {
+    "transpile": "node ./src/cli.js"
+  },
+  "keywords": [
+    "processing",
+    "p5js",
+    "transpiler",
+    "java",
+    "javascript"
+  ],
+  "license": "MIT"
+}
