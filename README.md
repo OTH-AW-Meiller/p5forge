@@ -127,5 +127,5 @@ try {
 ## Limitations
 
 - Regex-based approach, no AST parser
-- Complex Java class features (overloads, inheritance, interfaces, deep generics) are not fully supported
+- Complex Java class features (interfaces, deep generics) are not fully supported
 - Not full Java semantics; optimized for a pragmatic Processing -> p5 workflow
