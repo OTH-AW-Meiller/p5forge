@@ -20,6 +20,7 @@ export function createPreviewHtml(jsCode) {
       canvas {
         display: block;
         margin: auto;
+        touch-action: none;
       }
 
       body {
@@ -121,10 +122,66 @@ export function createPreviewHtml(jsCode) {
       }
 
       function runSketch() {
+        function installTouchMouseBridge(target) {
+          const canvas = target && target.elt ? target.elt : target;
+          if (!canvas || typeof canvas.addEventListener !== "function" || canvas.__p5forgeTouchMouseBridgeInstalled) {
+            return;
+          }
+
+          const options = { passive: false };
+
+          function getPrimaryTouch(event) {
+            if (event.touches && event.touches.length > 0) {
+              return event.touches[0];
+            }
+            if (event.changedTouches && event.changedTouches.length > 0) {
+              return event.changedTouches[0];
+            }
+            return null;
+          }
+
+          function dispatchMappedMouseEvent(event, type) {
+            const touch = getPrimaryTouch(event);
+            if (!touch) {
+              return;
+            }
+
+            event.preventDefault();
+            const mappedEvent = new MouseEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              clientX: touch.clientX,
+              clientY: touch.clientY,
+              screenX: touch.screenX,
+              screenY: touch.screenY,
+              button: 0,
+              buttons: type === "mouseup" ? 0 : 1
+            });
+
+            canvas.dispatchEvent(mappedEvent);
+          }
+
+          canvas.addEventListener("touchstart", function (event) {
+            dispatchMappedMouseEvent(event, "mousedown");
+          }, options);
+          canvas.addEventListener("touchmove", function (event) {
+            dispatchMappedMouseEvent(event, "mousemove");
+          }, options);
+          canvas.addEventListener("touchend", function (event) {
+            dispatchMappedMouseEvent(event, "mouseup");
+          }, options);
+          canvas.addEventListener("touchcancel", function (event) {
+            dispatchMappedMouseEvent(event, "mouseup");
+          }, options);
+
+          canvas.__p5forgeTouchMouseBridgeInstalled = true;
+        }
+
         if (window.p5 && window.p5.prototype && !window.__p5forgePatchedCreateCanvas) {
           const originalCreateCanvas = window.p5.prototype.createCanvas;
           window.p5.prototype.createCanvas = function patchedCreateCanvas(width, height, ...rest) {
-            const canvas = originalCreateCanvas.call(this, width, height, ...rest);
+            const renderer = originalCreateCanvas.call(this, width, height, ...rest);
+            installTouchMouseBridge(renderer);
             try {
               if (window.parent && Number.isFinite(width) && Number.isFinite(height)) {
                 window.parent.postMessage({
@@ -136,7 +193,7 @@ export function createPreviewHtml(jsCode) {
             } catch {
               // Ignore cross-context messaging issues.
             }
-            return canvas;
+            return renderer;
           };
           window.__p5forgePatchedCreateCanvas = true;
         }
