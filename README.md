@@ -24,7 +24,7 @@ https://oth-aw-meiller.github.io/p5forge/
   - `for (int n : nums)` -> `for (const n of nums)`
 - `catch (Exception e)` to `catch (e)`
 - `println(...)` to `console.log(...)`
-- Basic Java array creation (`new int[n]`) to `new Array(n)`
+- Basic Java array creation (`new int[n]`, `new Foo[n]`) to `new Array(n)`
 - `ArrayList<T> arr = new ArrayList<T>();` to `let arr = new Array();`
 - `arr.length()` to `arr.length`
 - Java `import` and `package` lines are removed

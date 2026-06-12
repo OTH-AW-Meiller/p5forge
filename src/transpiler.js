@@ -165,6 +165,15 @@ export function transpileProcessingToJs(inputCode) {
 
   code = code.replace(/new\s+(?:int|float|double|long|short|byte|boolean|char)\s*\[\s*([^\]]+)\s*\]/g, "new Array($1)");
 
+  // Convert Java-style object/custom array creation to JS arrays.
+  // Examples: new UFO[3] -> new Array(3), new Cell[w][h] -> Array.from({ length: w }, () => new Array(h))
+  code = code.replace(
+    /new\s+([A-Za-z_][\w.]*)\s*\[\s*([^\]]+)\s*\]\s*\[\s*([^\]]+)\s*\]/g,
+    "Array.from({ length: $2 }, () => new Array($3))"
+  );
+
+  code = code.replace(/new\s+([A-Za-z_][\w.]*)\s*\[\s*([^\]]+)\s*\]/g, "new Array($2)");
+
   // Convert Processing println to console.log.
   code = code.replace(/\bprintln\s*\(/g, "console.log(");
 
