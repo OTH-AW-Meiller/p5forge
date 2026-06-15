@@ -192,6 +192,10 @@ button {
   background: rgba(11, 40, 50, 0.95);
 }
 
+#btnHelp {
+  margin-left: auto;
+}
+
 .btn-danger {
   background: rgba(125, 18, 31, 0.92);
   border-color: rgba(255, 97, 126, 0.62);
@@ -584,11 +588,19 @@ button:hover {
 
   #btnLoad,
   #btnSave,
+  #btnExportJs,
   #btnHelp {
     width: 100%;
     min-height: 40px;
     font-size: 0.78rem;
     letter-spacing: 0.03em;
+  }
+
+  #btnHelp {
+    grid-column: 3;
+    width: auto;
+    justify-self: end;
+    margin-left: 0;
   }
 
   .panel {

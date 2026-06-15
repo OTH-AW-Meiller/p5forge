@@ -10,6 +10,7 @@ const sketchName = document.getElementById("sketchName");
 const fileInputPde = document.getElementById("fileInputPde");
 const btnLoad = document.getElementById("btnLoad");
 const btnSave = document.getElementById("btnSave");
+const btnExportJs = document.getElementById("btnExportJs");
 const btnHelp = document.getElementById("btnHelp");
 const btnRun = document.getElementById("btnRun");
 const statusText = document.getElementById("statusText");
@@ -201,6 +202,54 @@ async function savePde() {
   }
 }
 
+async function exportTranspiledJs() {
+  try {
+    const source = inputCode.value ?? "";
+    const stage1 = transpileProcessingToJs(source);
+    const runnableCode = transpileProcessingApiToP5(stage1);
+    const filename = normalizeJsFileName(sketchName.value);
+    const hasNativeSaveDialog = typeof window.showSaveFilePicker === "function";
+
+    if (hasNativeSaveDialog) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: "JavaScript file",
+            accept: {
+              "text/javascript": [".js"]
+            }
+          }
+        ]
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(runnableCode);
+      await writable.close();
+      setStatus(`Exported ${handle.name || filename}.`);
+      return;
+    }
+
+    const blob = new Blob([runnableCode], { type: "text/javascript;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setStatus(`Exported ${filename}.`);
+  } catch (error) {
+    if (error && error.name === "AbortError") {
+      setStatus("Export canceled.");
+      return;
+    }
+
+    setStatus(`Export failed: ${error.message}`);
+  }
+}
+
 function normalizePdeFileName(rawName) {
   const fallback = "sketch.pde";
   const cleaned = (rawName || "").trim().replace(/[\\\\/:*?"<>|]/g, "_");
@@ -215,6 +264,11 @@ function normalizePdeFileName(rawName) {
   return `${cleaned}.pde`;
 }
 
+function normalizeJsFileName(rawName) {
+  const base = normalizePdeFileName(rawName).replace(/\.pde$/i, "");
+  return `${base}.js`;
+}
+
 function updatePreview(jsCode) {
   const previewCode = jsCode.replace(/^\s*import\s+["'][^"']+["'];?\s*$/gm, "");
   setPreviewHeightFromCanvas(PREVIEW_MIN_HEIGHT);
@@ -224,6 +278,7 @@ function updatePreview(jsCode) {
 
 btnLoad.addEventListener("click", triggerLoadPde);
 btnSave.addEventListener("click", savePde);
+btnExportJs.addEventListener("click", exportTranspiledJs);
 btnHelp.addEventListener("click", openProcessingReference);
 btnRun.addEventListener("click", togglePreviewRunState);
 fileInputPde.addEventListener("change", handleLoadPde);
