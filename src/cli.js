@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
-import { transpileProcessingToJs } from "./transpiler.js";
+import { compileSource } from "./compiler/compiler.js";
 import { transpileProcessingApiToP5 } from "./p5-post-transpiler.js";
 
 function printUsage() {
@@ -27,7 +27,7 @@ function main() {
       stdin += chunk;
     });
     process.stdin.on("end", () => {
-      const jsCode = transpileProcessingToJs(stdin);
+      const { jsCode } = compileSource(stdin, "pde");
       process.stdout.write(transpileProcessingApiToP5(jsCode));
     });
     return;
@@ -42,8 +42,9 @@ function main() {
   }
 
   const source = fs.readFileSync(inputPath, "utf8");
-  const stage1 = transpileProcessingToJs(source);
-  const transpiled = transpileProcessingApiToP5(stage1);
+  const fileType = path.extname(inputPath).toLowerCase() === ".pde" ? "pde" : "java";
+  const { jsCode } = compileSource(source, fileType);
+  const transpiled = transpileProcessingApiToP5(jsCode);
 
   if (outputPath) {
     fs.writeFileSync(outputPath, transpiled, "utf8");

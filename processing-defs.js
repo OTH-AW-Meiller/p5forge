@@ -58,6 +58,28 @@ if (!Array.prototype.clear) {
   };
 }
 
+if (!globalThis.ArrayList) {
+  globalThis.ArrayList = class ArrayList extends Array {
+    constructor(...args) {
+      super();
+
+      // Java-style initial capacity should not pre-fill JS array length.
+      if (args.length === 1 && Number.isFinite(args[0])) {
+        return;
+      }
+
+      if (args.length === 1 && Array.isArray(args[0])) {
+        this.push(...args[0]);
+        return;
+      }
+
+      if (args.length > 0) {
+        this.push(...args);
+      }
+    }
+  };
+}
+
 class P5ForgeMapEntry {
   constructor(store, key) {
     this._store = store;
@@ -667,6 +689,203 @@ if (!globalThis.StringList) {
 
     array() {
       return this.values();
+    }
+  };
+}
+
+if (!globalThis.PVector) {
+  globalThis.PVector = class PVector {
+    constructor(x = 0, y = 0, z = 0) {
+      this.x = p5forgeCoerceNumber(x, 0);
+      this.y = p5forgeCoerceNumber(y, 0);
+      this.z = p5forgeCoerceNumber(z, 0);
+    }
+
+    set(x, y, z = this.z) {
+      if (x && typeof x === "object") {
+        this.x = p5forgeCoerceNumber(x.x, 0);
+        this.y = p5forgeCoerceNumber(x.y, 0);
+        this.z = p5forgeCoerceNumber(x.z, 0);
+        return this;
+      }
+
+      this.x = p5forgeCoerceNumber(x, 0);
+      this.y = p5forgeCoerceNumber(y, 0);
+      this.z = p5forgeCoerceNumber(z, 0);
+      return this;
+    }
+
+    copy() {
+      return new globalThis.PVector(this.x, this.y, this.z);
+    }
+
+    add(x, y, z = 0) {
+      if (x && typeof x === "object") {
+        this.x += p5forgeCoerceNumber(x.x, 0);
+        this.y += p5forgeCoerceNumber(x.y, 0);
+        this.z += p5forgeCoerceNumber(x.z, 0);
+        return this;
+      }
+
+      this.x += p5forgeCoerceNumber(x, 0);
+      this.y += p5forgeCoerceNumber(y, 0);
+      this.z += p5forgeCoerceNumber(z, 0);
+      return this;
+    }
+
+    sub(x, y, z = 0) {
+      if (x && typeof x === "object") {
+        this.x -= p5forgeCoerceNumber(x.x, 0);
+        this.y -= p5forgeCoerceNumber(x.y, 0);
+        this.z -= p5forgeCoerceNumber(x.z, 0);
+        return this;
+      }
+
+      this.x -= p5forgeCoerceNumber(x, 0);
+      this.y -= p5forgeCoerceNumber(y, 0);
+      this.z -= p5forgeCoerceNumber(z, 0);
+      return this;
+    }
+
+    mult(value) {
+      const n = p5forgeCoerceNumber(value, 1);
+      this.x *= n;
+      this.y *= n;
+      this.z *= n;
+      return this;
+    }
+
+    div(value) {
+      const n = p5forgeCoerceNumber(value, 1);
+      if (n === 0) {
+        return this;
+      }
+      this.x /= n;
+      this.y /= n;
+      this.z /= n;
+      return this;
+    }
+
+    magSq() {
+      return this.x * this.x + this.y * this.y + this.z * this.z;
+    }
+
+    mag() {
+      return Math.sqrt(this.magSq());
+    }
+
+    normalize() {
+      const m = this.mag();
+      if (m !== 0) {
+        this.div(m);
+      }
+      return this;
+    }
+
+    setMag(len) {
+      return this.normalize().mult(p5forgeCoerceNumber(len, 0));
+    }
+
+    limit(maxValue) {
+      const max = p5forgeCoerceNumber(maxValue, 0);
+      const mSq = this.magSq();
+      if (mSq > max * max) {
+        this.normalize();
+        this.mult(max);
+      }
+      return this;
+    }
+
+    heading() {
+      return Math.atan2(this.y, this.x);
+    }
+
+    lerp(x, y, z, amt) {
+      if (x && typeof x === "object") {
+        const targetX = p5forgeCoerceNumber(x.x, 0);
+        const targetY = p5forgeCoerceNumber(x.y, 0);
+        const targetZ = p5forgeCoerceNumber(x.z, 0);
+        const t = p5forgeCoerceNumber(y, 0);
+
+        this.x += (targetX - this.x) * t;
+        this.y += (targetY - this.y) * t;
+        this.z += (targetZ - this.z) * t;
+        return this;
+      }
+
+      const targetX = p5forgeCoerceNumber(x, 0);
+      const targetY = p5forgeCoerceNumber(y, 0);
+      const targetZ = p5forgeCoerceNumber(z, 0);
+      const t = p5forgeCoerceNumber(amt, 0);
+
+      this.x += (targetX - this.x) * t;
+      this.y += (targetY - this.y) * t;
+      this.z += (targetZ - this.z) * t;
+      return this;
+    }
+
+    dot(x, y, z = 0) {
+      if (x && typeof x === "object") {
+        return this.x * p5forgeCoerceNumber(x.x, 0) + this.y * p5forgeCoerceNumber(x.y, 0) + this.z * p5forgeCoerceNumber(x.z, 0);
+      }
+
+      return this.x * p5forgeCoerceNumber(x, 0) + this.y * p5forgeCoerceNumber(y, 0) + this.z * p5forgeCoerceNumber(z, 0);
+    }
+
+    dist(other) {
+      const dx = this.x - p5forgeCoerceNumber(other && other.x, 0);
+      const dy = this.y - p5forgeCoerceNumber(other && other.y, 0);
+      const dz = this.z - p5forgeCoerceNumber(other && other.z, 0);
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    cross(other) {
+      const ox = p5forgeCoerceNumber(other && other.x, 0);
+      const oy = p5forgeCoerceNumber(other && other.y, 0);
+      const oz = p5forgeCoerceNumber(other && other.z, 0);
+      return new globalThis.PVector(
+        this.y * oz - this.z * oy,
+        this.z * ox - this.x * oz,
+        this.x * oy - this.y * ox
+      );
+    }
+
+    static add(v1, v2) {
+      return v1.copy().add(v2);
+    }
+
+    static sub(v1, v2) {
+      return v1.copy().sub(v2);
+    }
+
+    static mult(vector, n) {
+      return vector.copy().mult(n);
+    }
+
+    static div(vector, n) {
+      return vector.copy().div(n);
+    }
+
+    static fromAngle(angle, length = 1) {
+      const a = p5forgeCoerceNumber(angle, 0);
+      const len = p5forgeCoerceNumber(length, 1);
+      return new globalThis.PVector(Math.cos(a) * len, Math.sin(a) * len, 0);
+    }
+
+    static lerp(v1, v2, amt) {
+      return v1.copy().lerp(v2, amt);
+    }
+
+    static random2D() {
+      const angle = Math.random() * Math.PI * 2;
+      return globalThis.PVector.fromAngle(angle, 1);
+    }
+
+    static random3D() {
+      const angle = Math.random() * Math.PI * 2;
+      const z = Math.random() * 2 - 1;
+      const base = Math.sqrt(Math.max(0, 1 - z * z));
+      return new globalThis.PVector(base * Math.cos(angle), base * Math.sin(angle), z);
     }
   };
 }

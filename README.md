@@ -1,38 +1,57 @@
 # p5forge
 
-A pragmatic transpiler that converts Processing(Java)-style code to JavaScript for p5.js.
+AST-based Processing(Java)-to-p5.js compiler with browser preview and CLI.
 
 ## Goal
 
-This is not a full Java compiler. It focuses on practical conversions that make Processing-style sketches run in p5.js quickly.
+p5forge is not a full Java compiler. The focus is on practical, robust conversion of Processing sketches into runnable JavaScript for p5.js.
 
 ## Live Demo
 
-GitHub Pages URL:
-
 https://oth-aw-meiller.github.io/p5forge/
 
-## Features (Best Effort)
+## Architecture
 
-- 2-stage conversion:
-  1. Java/Processing syntax -> JavaScript
-  2. Processing API -> p5.js API
-- Java type declarations to `let`
-- Method declarations to `function`
-- Type annotations removed from parameters
-- Java enhanced for-loops to JS `for...of`:
-  - `for (int n : nums)` -> `for (const n of nums)`
-- `catch (Exception e)` to `catch (e)`
-- `println(...)` to `console.log(...)`
-- Basic Java array creation (`new int[n]`, `new Foo[n]`) to `new Array(n)`
-- `ArrayList<T> arr = new ArrayList<T>();` to `let arr = new Array();`
-- `arr.length()` to `arr.length`
-- Java `import` and `package` lines are removed
-- Processing -> p5 mappings, for example:
-  - `size(...)` -> `createCanvas(...)`
-  - `P3D`/`OPENGL` -> `WEBGL`
-- Automatic runtime import for Java-like helpers:
-  - `import "./processing-defs.js";`
+The build has two stages:
+
+1. AST compiler (`src/compiler/*`)
+1. p5 post-transpiler (`src/p5-post-transpiler.js`)
+
+### 1) AST Compiler
+
+Pipeline:
+
+1. `tokenizer.js` tokenizes the source code.
+1. `parser.js` builds an AST for classes, members, statements, and expressions.
+1. `semantics.js` validates types and core language rules.
+1. `generator.js` emits JavaScript from the AST.
+
+Key capabilities:
+
+- File-type aware compilation (`java` or `pde`) in `compileSource(source, fileType)`.
+- For `pde`, parser-compatible normalization is applied when needed:
+  - Top-level sketch code is normalized so parsing remains class-based internally.
+  - `setup()` is added if missing.
+  - Additional user-defined classes in `.pde` files are preserved.
+- The internal synthetic wrapper (used only for parsing) is flattened again during JS generation:
+  - Output uses global `setup()/draw()/...` functions like idiomatic Processing/p5 global mode.
+  - No runtime sketch-instance wrapper is required.
+- Scope-aware field binding in instance methods/constructors:
+  - Bare field identifiers are resolved to `this.<field>`.
+- Expression grouping is preserved correctly (parenthesized output where needed).
+
+### 2) p5 Post-Transpiler
+
+After AST generation, p5 API mappings are applied:
+
+- `size(...) -> createCanvas(...)`
+- `P3D`/`OPENGL -> WEBGL`
+- 4-arg `circle(...) -> ellipse(...)`
+- `arr.length() -> arr.length`
+- `mousePressed` (state variable) -> `mouseIsPressed` (callable `mousePressed()` callback is preserved)
+- `keyPressed` (state variable) -> `keyIsPressed` (callable `keyPressed()` callback is preserved)
+- `colorMode(HSB|RGB, a, b, c) -> colorMode(HSB|RGB, a, b, c, 255)` for predictable alpha behavior
+- Adds `import "./processing-defs.js";`
 
 ## Installation
 
@@ -40,43 +59,39 @@ https://oth-aw-meiller.github.io/p5forge/
 npm install
 ```
 
-## Browser Version (No Terminal)
+## Browser Version
 
-Open `index.html` in your browser.
+Open `index.html` or serve the project locally via an HTTP server.
 
 Features:
 
-- Hacker-themed UI with a code editor look
-- Input on the left, live p5.js preview on the right
-- One toggle `Run/Stop` button for transpile + preview control
-- Shortcuts:
-  - `F5` to toggle run/stop
-- Lightweight Processing autocomplete in the editor:
-  - Command suggestions while typing
-  - Signature details (for example `line(x1, y1, x2, y2)`)
-  - Template insertion (for example `setup() { ... }`)
-  - Per-suggestion `?` help button opening the matching Processing reference page
-- Preview auto-stops when code is edited
-- Toolbar `Help` button opens: https://processing.org/reference/
-- p5 loading strategy in preview:
-  - Try local `vendor/p5.min.js` first (if present)
-  - Automatically fall back to CDN if local file is missing
+- Editor + live preview
+- `Run/Stop` Toggle
+- `F5` Hotkey
+- Autocomplete for Processing commands
+- Preview stops after code edits
+- Help button opens the Processing reference
 
-Current default setup: no local `vendor/p5.min.js` file committed, so preview uses the CDN fallback automatically.
+p5.js loading strategy:
 
-## CLI Usage
+1. local `vendor/p5.min.js`
+1. fallback to CDN
+
+## CLI
+
+Transpile to file:
 
 ```bash
 node src/cli.js input.pde output.js
 ```
 
-Or print to STDOUT:
+Print to STDOUT:
 
 ```bash
 node src/cli.js input.pde
 ```
 
-Or via stdin:
+Via stdin:
 
 ```bash
 cat input.pde | node src/cli.js --stdin
@@ -84,56 +99,48 @@ cat input.pde | node src/cli.js --stdin
 
 ## Example
 
-Input (Processing-style):
+Input (Processing/pde):
 
 ```java
-int x = 0;
-float speed = 2.5;
+int particles = 80;
+float drift = 0.0;
 
 void setup() {
-  size(400, 400);
+  size(820, 520);
 }
 
 void draw() {
-  for (int i = 0; i < 10; i++) {
-    println(i);
+  for (int i = 0; i < particles; i++) {
+    float hue = (frameCount * 0.7 + i * 5) % 360;
+    fill(hue, 80, 100, 45);
+    circle(100, 100, 20, 20);
   }
-}
-
-try {
-  riskyCall();
-} catch (IOException e) {
-  println(e);
 }
 ```
 
-Output (JS/p5.js):
+Output (shortened):
 
 ```javascript
 import "./processing-defs.js";
 
-let x = 0;
-let speed = 2.5;
+let particles = 80;
+let drift = 0;
 
 function setup() {
-  createCanvas(400, 400);
+  createCanvas(820, 520);
 }
 
 function draw() {
-  for (let i = 0; i < 10; i++) {
-    console.log(i);
+  for (let i = 0; i < particles; i++) {
+    let hue = (((frameCount * 0.7) + (i * 5)) % 360);
+    fill(hue, 80, 100, 45);
+    ellipse(100, 100, 20, 20);
   }
-}
-
-try {
-  riskyCall();
-} catch (e) {
-  console.log(e);
 }
 ```
 
-## Limitations
+## Current Limitations
 
-- Regex-based approach, no AST parser
-- Complex Java class features (interfaces, deep generics) are not fully supported
-- Not full Java semantics; optimized for a pragmatic Processing -> p5 workflow
+- Not a full Java frontend (for example, interfaces and advanced language features are only partially supported).
+- Semantic validation is intentionally pragmatic and optimized for sketch use cases.
+- Focus is Processing/p5 workflows, not full general-purpose Java compatibility.

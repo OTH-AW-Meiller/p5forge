@@ -1,4 +1,4 @@
-import { transpileProcessingToJs } from "./transpiler.js";
+import { compileSource } from "./compiler/compiler.js";
 import { transpileProcessingApiToP5 } from "./p5-post-transpiler.js";
 import { createPreviewHtml } from "./preview-template.js";
 import { bindEditorKeyHandlers, bindGlobalHotkeys } from "./keyboard-handlers.js";
@@ -98,8 +98,8 @@ function syncLineNumberScroll() {
 function runTranspile() {
   try {
     const source = inputCode.value ?? "";
-    const stage1 = transpileProcessingToJs(source);
-    const runnableCode = transpileProcessingApiToP5(stage1);
+    const { jsCode } = compileSource(source, "pde");
+    const runnableCode = transpileProcessingApiToP5(jsCode);
     updatePreview(runnableCode);
     setPreviewRunningState(true);
     setStatus("Run successful. Preview updated.");
@@ -205,8 +205,8 @@ async function savePde() {
 async function exportTranspiledJs() {
   try {
     const source = inputCode.value ?? "";
-    const stage1 = transpileProcessingToJs(source);
-    const runnableCode = transpileProcessingApiToP5(stage1);
+    const { jsCode } = compileSource(source, "pde");
+    const runnableCode = transpileProcessingApiToP5(jsCode);
     const filename = normalizeJsFileName(sketchName.value);
     const hasNativeSaveDialog = typeof window.showSaveFilePicker === "function";
 
