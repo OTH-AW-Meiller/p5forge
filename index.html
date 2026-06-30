@@ -66,8 +66,11 @@
           </div>
         </article>
 
-        <article class="panel preview-panel">
-          <h2>p5.js Preview</h2>
+        <article class="panel preview-panel" id="previewWindow">
+          <header class="preview-titlebar" id="previewTitlebar">
+            <span class="preview-title" id="previewTitle">Preview</span>
+            <button id="btnPreviewClose" class="preview-close" type="button" aria-label="Stop preview" title="Stop">&times;</button>
+          </header>
           <iframe id="previewFrame" title="p5.js Preview" sandbox="allow-scripts" allow="accelerometer; gyroscope; magnetometer"></iframe>
         </article>
       </section>

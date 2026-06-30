@@ -236,7 +236,95 @@ button:hover {
 .editors {
   display: grid;
   gap: 12px;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
+}
+
+/* The preview is only present while a sketch is running. */
+.preview-panel {
+  display: none;
+}
+
+body.preview-running .preview-panel {
+  display: block;
+}
+
+.preview-titlebar {
+  display: none;
+}
+
+@media (min-width: 901px) {
+  /* Floating sketch window, like the standalone Processing display window. */
+  body.preview-running .preview-panel {
+    position: fixed;
+    z-index: 200;
+    top: 96px;
+    right: 28px;
+    width: -moz-fit-content;
+    width: fit-content;
+    max-width: 92vw;
+    padding: 0;
+    overflow: hidden;
+    border-color: rgba(20, 240, 143, 0.55);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6), 0 0 26px rgba(20, 240, 143, 0.22);
+  }
+
+  .preview-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: linear-gradient(90deg, rgba(20, 240, 143, 0.18), rgba(0, 217, 255, 0.14));
+    border-bottom: 1px solid rgba(20, 240, 143, 0.3);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .preview-titlebar:active {
+    cursor: grabbing;
+  }
+
+  .preview-title {
+    flex: 1;
+    min-width: 0;
+    font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    color: #d7ffe8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .preview-close {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid rgba(255, 97, 126, 0.5);
+    border-radius: 6px;
+    background: rgba(125, 18, 31, 0.5);
+    color: #ffdbe3;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .preview-close:hover {
+    background: rgba(162, 24, 43, 0.92);
+    transform: none;
+  }
+
+  body.preview-running .preview-panel #previewFrame {
+    display: block;
+    width: min(var(--canvas-w, 480px), 92vw);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
 
 .panel {
@@ -680,11 +768,15 @@ button:hover {
     font-size: 0.78rem;
   }
 
-  #inputCode {
+  .code-area {
+    --code-font-size: 0.84rem;
+    --code-line-height: 1.45;
+  }
+
+  #inputCode,
+  #highlightLayer {
     min-height: 46vh;
     padding: 10px;
-    font-size: 0.84rem;
-    line-height: 1.45;
   }
 
   .editor-autocomplete {

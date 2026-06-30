@@ -18,6 +18,10 @@ const btnRun = document.getElementById("btnRun");
 const statusText = document.getElementById("statusText");
 const statusBar = statusText ? statusText.closest(".statusbar") : null;
 const previewFrame = document.getElementById("previewFrame");
+const previewWindow = document.getElementById("previewWindow");
+const previewTitlebar = document.getElementById("previewTitlebar");
+const previewTitle = document.getElementById("previewTitle");
+const btnPreviewClose = document.getElementById("btnPreviewClose");
 const editorAutocomplete = createEditorAutocomplete({ inputCode });
 let lastStatusMessage = statusText && typeof statusText.textContent === "string" ? statusText.textContent : "";
 const SAMPLE_FILE_PATH = "./sample.pde";
@@ -75,6 +79,10 @@ function setPreviewRunningState(isRunning) {
   btnRun.setAttribute("title", isRunning ? "Stop (F5)" : "Run (F5)");
   btnRun.dataset.running = isRunning ? "true" : "false";
   btnRun.innerHTML = isRunning ? STOP_ICON_SVG : PLAY_ICON_SVG;
+  document.body.classList.toggle("preview-running", isRunning);
+  if (isRunning && previewTitle) {
+    previewTitle.textContent = normalizePdeFileName(sketchName.value).replace(/\.pde$/i, "");
+  }
 }
 
 function updateLineNumbers() {
@@ -296,6 +304,53 @@ btnHelp.addEventListener("click", openProcessingReference);
 btnRun.addEventListener("click", togglePreviewRunState);
 fileInputPde.addEventListener("change", handleLoadPde);
 
+if (btnPreviewClose) {
+  btnPreviewClose.addEventListener("click", stopPreview);
+}
+
+// Floating preview window: drag it around by its titlebar (desktop only).
+if (previewTitlebar && previewWindow) {
+  const desktopQuery = window.matchMedia("(min-width: 901px)");
+  let drag = null;
+
+  previewTitlebar.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || !desktopQuery.matches) {
+      return;
+    }
+    if (event.target.closest(".preview-close")) {
+      return;
+    }
+    const rect = previewWindow.getBoundingClientRect();
+    drag = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+    previewWindow.style.left = `${rect.left}px`;
+    previewWindow.style.top = `${rect.top}px`;
+    previewWindow.style.right = "auto";
+    previewTitlebar.setPointerCapture(event.pointerId);
+  });
+
+  previewTitlebar.addEventListener("pointermove", (event) => {
+    if (!drag) {
+      return;
+    }
+    const x = Math.max(0, Math.min(event.clientX - drag.dx, window.innerWidth - 48));
+    const y = Math.max(0, Math.min(event.clientY - drag.dy, window.innerHeight - 48));
+    previewWindow.style.left = `${x}px`;
+    previewWindow.style.top = `${y}px`;
+  });
+
+  const endDrag = (event) => {
+    if (!drag) {
+      return;
+    }
+    drag = null;
+    if (previewTitlebar.hasPointerCapture(event.pointerId)) {
+      previewTitlebar.releasePointerCapture(event.pointerId);
+    }
+  };
+  previewTitlebar.addEventListener("pointerup", endDrag);
+  previewTitlebar.addEventListener("pointercancel", endDrag);
+}
+
 bindGlobalHotkeys({ onToggleRun: togglePreviewRunState });
 
 window.addEventListener("message", (event) => {
@@ -306,6 +361,9 @@ window.addEventListener("message", (event) => {
 
   if (data.type === "p5forge-canvas-size") {
     setPreviewHeightFromCanvas(data.height);
+    if (previewWindow && Number.isFinite(data.width)) {
+      previewWindow.style.setProperty("--canvas-w", `${Math.ceil(data.width)}px`);
+    }
     return;
   }
 
