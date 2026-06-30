@@ -12,6 +12,7 @@ const PRIMITIVE_BASE_TYPES = new Set([
   "color",
   "PImage",
   "PFont",
+  "PShape",
   "PVector",
   "ArrayList",
   "HashMap",

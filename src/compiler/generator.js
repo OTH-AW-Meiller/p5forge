@@ -37,6 +37,9 @@ const ASYNC_LOADER_FUNCTIONS = new Set([
   "loadBytes",
   "loadModel",
   "loadShader",
+  // loadShape() is provided by the PShape runtime shim (processing-defs.js) and
+  // is async because it defers to loadImage()/loadModel().
+  "loadShape",
   // requestImage() was removed in p5.js 2.0; the now-async loadImage() is its
   // replacement (see LOADER_RENAMES).
   "requestImage"
@@ -347,7 +350,6 @@ function generateClass(cls, classMap = new Map()) {
   const instanceFields = cls.members.filter(
     (member) => member.type === "FieldDeclaration" && !member.modifiers.includes("static")
   );
-  const ownInstanceFieldNames = new Set(instanceFields.map((field) => field.name));
   const staticFields = cls.members.filter(
     (member) => member.type === "FieldDeclaration" && member.modifiers.includes("static")
   );
@@ -368,7 +370,7 @@ function generateClass(cls, classMap = new Map()) {
         1,
         instanceFields,
         Boolean(cls.superClass),
-        ownInstanceFieldNames,
+        instanceFieldNames,
         instanceMethodNames
       )
     );
@@ -378,7 +380,7 @@ function generateClass(cls, classMap = new Map()) {
         instanceFields,
         1,
         Boolean(cls.superClass),
-        ownInstanceFieldNames,
+        instanceFieldNames,
         instanceMethodNames
       )
     );

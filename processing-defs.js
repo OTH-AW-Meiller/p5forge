@@ -889,3 +889,409 @@ if (!globalThis.PVector) {
     }
   };
 }
+
+// ---------------------------------------------------------------------------
+// PShape — Processing shape support on top of p5.js 2.0.
+//
+// p5.js 2.0 has no PShape / loadShape / createShape / shape() in core, so this
+// is a runtime shim. A PShape records its geometry/style/transforms when built
+// and replays them through p5's immediate-mode API when drawn. loadShape()
+// defers to the now-async loadImage()/loadModel(), hence it is async (the
+// transpiler awaits it; see ASYNC_LOADER_FUNCTIONS in generator.js).
+// ---------------------------------------------------------------------------
+
+// createShape() primitive/group kinds. Processing exposes these as constants;
+// p5 has no equivalents, so define stable sentinels — guarded so we never
+// clobber an existing p5 constant of the same name.
+for (const kind of ["GROUP", "POINT", "LINE", "TRIANGLE", "QUAD", "RECT", "ELLIPSE", "ARC", "BOX", "SPHERE"]) {
+  if (globalThis[kind] === undefined) {
+    globalThis[kind] = "p5forge:shape:" + kind;
+  }
+}
+
+if (!globalThis.PShape) {
+  globalThis.PShape = class PShape {
+    // type: "path" | "primitive" | "group" | "image" | "geometry"
+    constructor(type = "path") {
+      this._type = type;
+      this._children = [];
+      this._vertices = []; // { kind: "vertex" | "bezier" | "curve", args }
+      this._beginKind = null; // beginShape() mode
+      this._closeMode = null; // CLOSE or null
+      this._primitive = null; // { kind, params } for "primitive"
+      this._image = null; // p5.Image for "image"
+      this._geometry = null; // p5.Geometry for "geometry"
+      this._transforms = []; // { op, args }
+      this._visible = true;
+      // undefined = inherit ambient style, null = none, else explicit value
+      this._fill = undefined;
+      this._stroke = undefined;
+      this._strokeWeight = undefined;
+      this.width = 0;
+      this.height = 0;
+    }
+
+    // --- building (retained mode) -----------------------------------------
+    beginShape(kind) {
+      this._beginKind = kind === undefined ? null : kind;
+      this._vertices = [];
+      return this;
+    }
+
+    vertex(...args) {
+      this._vertices.push({ kind: "vertex", args });
+      return this;
+    }
+
+    bezierVertex(...args) {
+      this._vertices.push({ kind: "bezier", args });
+      return this;
+    }
+
+    curveVertex(...args) {
+      this._vertices.push({ kind: "curve", args });
+      return this;
+    }
+
+    endShape(mode) {
+      this._closeMode = mode === undefined ? null : mode;
+      return this;
+    }
+
+    // --- children (GROUP shapes) ------------------------------------------
+    addChild(child) {
+      this._children.push(child);
+      return this;
+    }
+
+    getChild(index) {
+      return this._children[index] ?? null;
+    }
+
+    getChildCount() {
+      return this._children.length;
+    }
+
+    // --- vertices ---------------------------------------------------------
+    getVertexCount() {
+      return this._vertices.length;
+    }
+
+    getVertex(index) {
+      const v = this._vertices[index];
+      if (!v) {
+        return new globalThis.PVector(0, 0, 0);
+      }
+      return new globalThis.PVector(v.args[0] ?? 0, v.args[1] ?? 0, v.args[2] ?? 0);
+    }
+
+    setVertex(index, x, y, z) {
+      const v = this._vertices[index];
+      if (!v) {
+        return;
+      }
+      if (x && typeof x === "object") {
+        v.args = x.z === undefined ? [x.x ?? 0, x.y ?? 0] : [x.x ?? 0, x.y ?? 0, x.z];
+      } else {
+        v.args[0] = x;
+        v.args[1] = y;
+        if (z === undefined) {
+          // Preserve 2D arity so vertex() is not given a stray texture coord.
+          v.args.length = 2;
+        } else {
+          v.args[2] = z;
+        }
+      }
+    }
+
+    // --- style ------------------------------------------------------------
+    // Color overrides are stored as argument arrays and replayed through p5's
+    // fill()/stroke() at draw time (undefined = inherit, null = none).
+    setFill(...args) {
+      // Processing accepts setFill(boolean) to toggle and setFill(color).
+      if (args.length === 1 && typeof args[0] === "boolean") {
+        this._fill = args[0] ? undefined : null;
+      } else {
+        this._fill = args;
+      }
+      return this;
+    }
+
+    setStroke(...args) {
+      if (args.length === 1 && typeof args[0] === "boolean") {
+        this._stroke = args[0] ? undefined : null;
+      } else {
+        this._stroke = args;
+      }
+      return this;
+    }
+
+    setStrokeWeight(weight) {
+      this._strokeWeight = weight;
+      return this;
+    }
+
+    noFill() {
+      this._fill = null;
+      return this;
+    }
+
+    noStroke() {
+      this._stroke = null;
+      return this;
+    }
+
+    fill(...args) {
+      this._fill = args;
+      return this;
+    }
+
+    stroke(...args) {
+      this._stroke = args;
+      return this;
+    }
+
+    // --- transforms (queued, applied at draw time) ------------------------
+    translate(x, y, z = 0) {
+      this._transforms.push({ op: "translate", args: [x, y, z] });
+      return this;
+    }
+
+    rotate(angle) {
+      this._transforms.push({ op: "rotate", args: [angle] });
+      return this;
+    }
+
+    rotateX(angle) {
+      this._transforms.push({ op: "rotateX", args: [angle] });
+      return this;
+    }
+
+    rotateY(angle) {
+      this._transforms.push({ op: "rotateY", args: [angle] });
+      return this;
+    }
+
+    rotateZ(angle) {
+      this._transforms.push({ op: "rotateZ", args: [angle] });
+      return this;
+    }
+
+    scale(x, y, z) {
+      const args = y === undefined ? [x] : z === undefined ? [x, y] : [x, y, z];
+      this._transforms.push({ op: "scale", args });
+      return this;
+    }
+
+    resetMatrix() {
+      this._transforms = [];
+      return this;
+    }
+
+    // --- visibility -------------------------------------------------------
+    setVisible(visible) {
+      this._visible = !!visible;
+      return this;
+    }
+
+    isVisible() {
+      return this._visible;
+    }
+
+    // --- rendering --------------------------------------------------------
+    _applyStyle() {
+      if (this._fill === null) {
+        globalThis.noFill();
+      } else if (this._fill !== undefined) {
+        globalThis.fill(...this._fill);
+      }
+      if (this._stroke === null) {
+        globalThis.noStroke();
+      } else if (this._stroke !== undefined) {
+        globalThis.stroke(...this._stroke);
+      }
+      if (this._strokeWeight !== undefined) {
+        globalThis.strokeWeight(this._strokeWeight);
+      }
+    }
+
+    _applyTransforms() {
+      for (const t of this._transforms) {
+        const fn = globalThis[t.op];
+        if (typeof fn === "function") {
+          fn(...t.args);
+        }
+      }
+    }
+
+    _drawPath() {
+      if (this._beginKind === null) {
+        globalThis.beginShape();
+      } else {
+        globalThis.beginShape(this._beginKind);
+      }
+      for (const v of this._vertices) {
+        if (v.kind === "bezier") {
+          globalThis.bezierVertex(...v.args);
+        } else if (v.kind === "curve") {
+          globalThis.curveVertex(...v.args);
+        } else {
+          globalThis.vertex(...v.args);
+        }
+      }
+      if (this._closeMode === null) {
+        globalThis.endShape();
+      } else {
+        globalThis.endShape(this._closeMode);
+      }
+    }
+
+    _drawPrimitive() {
+      const { kind, params } = this._primitive;
+      const call = (name) => {
+        const fn = globalThis[name];
+        if (typeof fn === "function") {
+          fn(...params);
+        }
+      };
+      if (kind === globalThis.RECT) call("rect");
+      else if (kind === globalThis.ELLIPSE) call("ellipse");
+      else if (kind === globalThis.LINE) call("line");
+      else if (kind === globalThis.TRIANGLE) call("triangle");
+      else if (kind === globalThis.QUAD) call("quad");
+      else if (kind === globalThis.ARC) call("arc");
+      else if (kind === globalThis.POINT) call("point");
+      else if (kind === globalThis.BOX) call("box");
+      else if (kind === globalThis.SPHERE) call("sphere");
+    }
+
+    // Render at the current origin. w/h are optional sizes from shape().
+    _draw(w, h) {
+      if (!this._visible) {
+        return;
+      }
+      globalThis.push();
+      this._applyTransforms();
+      this._applyStyle();
+      switch (this._type) {
+        case "group":
+          for (const child of this._children) {
+            child._draw();
+          }
+          break;
+        case "image":
+          if (this._image) {
+            if (w !== undefined && h !== undefined) {
+              globalThis.image(this._image, 0, 0, w, h);
+            } else {
+              globalThis.image(this._image, 0, 0);
+            }
+          }
+          break;
+        case "geometry":
+          if (this._geometry && typeof globalThis.model === "function") {
+            globalThis.model(this._geometry);
+          }
+          break;
+        case "primitive":
+          this._drawPrimitive();
+          break;
+        default:
+          this._drawPath();
+          break;
+      }
+      globalThis.pop();
+    }
+  };
+}
+
+if (!globalThis.createShape) {
+  globalThis.createShape = function createShape(kind, ...params) {
+    if (kind === undefined) {
+      return new globalThis.PShape("path");
+    }
+    if (kind === globalThis.GROUP) {
+      return new globalThis.PShape("group");
+    }
+
+    // Vertex-based primitives (POINT/LINE/TRIANGLE/QUAD) are stored as editable
+    // vertices so setVertex()/getVertex() behave like in Processing. The size
+    // primitives (RECT/ELLIPSE/ARC/BOX/SPHERE) stay parameter-based.
+    let beginKind = null;
+    let close = false;
+    let isVertexPrimitive = true;
+    if (kind === globalThis.POINT) {
+      beginKind = globalThis.POINTS;
+    } else if (kind === globalThis.LINE) {
+      beginKind = globalThis.LINES;
+    } else if (kind === globalThis.TRIANGLE) {
+      close = true;
+    } else if (kind === globalThis.QUAD) {
+      close = true;
+    } else {
+      isVertexPrimitive = false;
+    }
+
+    if (isVertexPrimitive) {
+      const shape = new globalThis.PShape("path");
+      shape._beginKind = beginKind;
+      shape._closeMode = close ? globalThis.CLOSE ?? "close" : null;
+      for (let i = 0; i + 1 < params.length; i += 2) {
+        shape._vertices.push({ kind: "vertex", args: [params[i], params[i + 1]] });
+      }
+      return shape;
+    }
+
+    const shape = new globalThis.PShape("primitive");
+    shape._primitive = { kind, params };
+    return shape;
+  };
+}
+
+if (!globalThis.loadShape) {
+  globalThis.loadShape = async function loadShape(path) {
+    const lower = String(path).toLowerCase();
+    if (lower.endsWith(".obj") || lower.endsWith(".stl")) {
+      const shape = new globalThis.PShape("geometry");
+      if (typeof globalThis.loadModel === "function") {
+        shape._geometry = await globalThis.loadModel(path);
+      }
+      return shape;
+    }
+    // SVG and other raster formats: load as an image and draw with image().
+    const shape = new globalThis.PShape("image");
+    const img = await globalThis.loadImage(path);
+    shape._image = img;
+    shape.width = img && img.width ? img.width : 0;
+    shape.height = img && img.height ? img.height : 0;
+    return shape;
+  };
+}
+
+if (!globalThis.shapeMode) {
+  globalThis.shapeMode = function shapeMode(mode) {
+    globalThis.__p5forgeShapeMode = mode;
+  };
+}
+
+if (!globalThis.shape) {
+  globalThis.shape = function shape(sh, x = 0, y = 0, w, h) {
+    if (!sh || typeof sh._draw !== "function") {
+      return;
+    }
+    globalThis.push();
+    const mode = globalThis.__p5forgeShapeMode;
+    if (mode === globalThis.CENTER && w !== undefined && h !== undefined) {
+      globalThis.translate(x - w / 2, y - h / 2);
+    } else if (mode === globalThis.CORNERS && w !== undefined && h !== undefined) {
+      // Treat (x, y) and (w, h) as opposite corners.
+      globalThis.translate(x, y);
+      w = w - x;
+      h = h - y;
+    } else {
+      globalThis.translate(x, y);
+    }
+    sh._draw(w, h);
+    globalThis.pop();
+  };
+}
