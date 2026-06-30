@@ -12,10 +12,11 @@ https://oth-aw-meiller.github.io/p5forge/
 
 ## Architecture
 
-The build has two stages:
+The build has two compile stages, plus a runtime shim loaded alongside the output:
 
 1. AST compiler (`src/compiler/*`)
 1. p5 post-transpiler (`src/p5-post-transpiler.js`)
+1. Runtime helpers (`processing-defs.js`)
 
 ### 1) AST Compiler
 
@@ -58,6 +59,8 @@ Key capabilities:
 - Control-flow coverage includes `if`, `while`, `for`, enhanced `for`, `try/catch/finally`, `switch/case/default`, and `break`.
 - Java-style field declarations with multiple names are supported (for example `float x, y;`).
 - Expression grouping is preserved correctly (parenthesized output where needed).
+- Annotations (`@Override`, `@FunctionalInterface`, `@SuppressWarnings("x")`, `@org.junit.Test`, ...) are accepted anywhere and ignored (stripped during tokenization).
+- p5.js 2.0 async asset loaders (`loadImage`, `loadFont`, `loadJSON`, `loadStrings`, `loadTable`, `loadXML`, `loadBytes`, `loadModel`, `loadShader`, `loadShape`) are awaited, and their enclosing function is emitted as `async`. `requestImage(...)` (removed in p5 2.0) is rewritten to `await loadImage(...)`.
 
 ### 2) p5 Post-Transpiler
 
@@ -72,6 +75,14 @@ After AST generation, p5 API mappings are applied:
 - `colorMode(HSB|RGB, a, b, c) -> colorMode(HSB|RGB, a, b, c, 255)` for predictable alpha behavior
 - Adds `import "./processing-defs.js";`
 
+### 3) Runtime helpers (`processing-defs.js`)
+
+A small runtime shim provides Processing data types and APIs that p5.js does not
+have natively, attached to `globalThis`:
+
+- Collections and helpers: `ArrayList`, `HashMap`, `IntDict`/`FloatDict`/`StringDict`, `IntList`/`FloatList`/`StringList`, and `PVector`.
+- `PShape` support (removed/absent in p5.js 2.0): `createShape(...)`, `loadShape(...)` (SVG via `loadImage`, OBJ/STL via `loadModel`), `shape(...)`, `shapeMode(...)`, plus building shapes with `beginShape`/`vertex`/`endShape`, `setFill`/`setStroke`, groups, and transforms.
+
 ## Installation
 
 ```bash
@@ -84,17 +95,23 @@ Open `index.html` or serve the project locally via an HTTP server.
 
 Features:
 
-- Editor + live preview
-- `Run/Stop` Toggle
-- `F5` Hotkey
-- Autocomplete for Processing commands
-- Preview stops after code edits
-- Help button opens the Processing reference
+- Code editor with syntax highlighting, line numbers, and autocomplete for Processing commands
+- Multiple code tabs (one `.pde` file per tab); all tabs are concatenated when compiling
+- `New Sketch` starts from a `setup()`/`draw()` template (`empty.pde`)
+- Floating live preview window (like Processing's display window) that appears on `Run` and hides on `Stop`
+- `Run/Stop` toggle and `F5` hotkey; the sketch starts stopped and runs on demand
+- Console-style status area that collects log/`println` output
+- Autosave: all tabs (names + code) are persisted to browser local storage and restored on reload
+- Load/Save `.pde` (operates on the active tab)
+- Export the whole sketch as a **p5.js project** (ZIP: `index.html`, `sketch.js`, `processing-defs.js`)
+- Export the whole sketch as a **Processing project** (ZIP: a sketch folder with one `.pde` per tab)
+- Hamburger menu in the header with an `About` dialog
+- Help opens the Processing reference
 
-p5.js loading strategy:
+p5.js loading strategy (preview and exported p5.js project use p5.js 2.x):
 
 1. local `vendor/p5.min.js`
-1. fallback to CDN
+1. fallback to CDN (`p5@2.3.0`)
 
 ## CLI
 
@@ -167,3 +184,7 @@ function draw() {
 - Full Java override compatibility checks are still pragmatic rather than exhaustive.
 - Semantic validation is intentionally pragmatic and optimized for sketch use cases.
 - Focus is Processing/p5 workflows, not full general-purpose Java compatibility.
+- `print()` and `println()` map to `console.log` (the browser console / the in-app status console), not a separate text area.
+- `PShape` is a pragmatic shim: 3D shapes (`BOX`/`SPHERE`, OBJ models) require a WebGL canvas, per-vertex colors are not reproduced, and `shapeMode` positioning is approximate.
+- Annotation arguments are discarded (annotations carry no meaning); they are not exposed at runtime.
+- Autosave keeps the latest tabs in browser local storage; clearing site data or switching browsers loses the buffer (use `Save .pde` / project export to persist work). Use `New Sketch` to start fresh.

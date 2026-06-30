@@ -279,9 +279,23 @@ body.menu-open .topbar {
 }
 
 .about-tag {
-  margin: 4px 0 16px;
+  margin: 4px 0 14px;
   color: #7adbb5;
   font-size: 0.85rem;
+}
+
+.about-features {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.86rem;
+  color: #d7ffe8;
+}
+
+.about-features li::marker {
+  color: #00fca8;
 }
 
 .about-meta {

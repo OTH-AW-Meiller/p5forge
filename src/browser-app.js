@@ -17,6 +17,7 @@ const btnSave = document.getElementById("btnSave");
 const btnExportJs = document.getElementById("btnExportJs");
 const btnExportProcessing = document.getElementById("btnExportProcessing");
 const btnHelp = document.getElementById("btnHelp");
+const btnNewSketch = document.getElementById("btnNewSketch");
 const appMenu = document.getElementById("appMenu");
 const btnMenu = document.getElementById("btnMenu");
 const menuDropdown = document.getElementById("menuDropdown");
@@ -34,7 +35,20 @@ const btnPreviewClose = document.getElementById("btnPreviewClose");
 const editorAutocomplete = createEditorAutocomplete({ inputCode });
 const MAX_CONSOLE_LINES = 200;
 const SAMPLE_FILE_PATH = "./sample.pde";
-const APP_VERSION = "0.1.0";
+const STORAGE_KEY = "p5forge:tabs:v1";
+const EMPTY_FILE_PATH = "./empty.pde";
+// Fallback used only if empty.pde cannot be fetched.
+const NEW_SKETCH_TEMPLATE = `void setup() {
+  size(400, 400);
+}
+
+void draw() {
+  background(0);
+}
+`;
+// Version is read from package.json at startup (see loadAppVersion). This is
+// only the fallback shown if that fetch fails.
+let appVersion = "0.9.0";
 const PLAY_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6L19 12L8 18Z" /></svg>';
 const STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>';
 
@@ -94,6 +108,7 @@ function setActiveTab(id) {
   activeTabId = id;
   loadActiveTabIntoEditor();
   renderTabs();
+  persistTabs();
 }
 
 function addTab() {
@@ -103,7 +118,23 @@ function addTab() {
   activeTabId = tab.id;
   loadActiveTabIntoEditor();
   renderTabs();
+  persistTabs();
   stopPreviewOnEdit();
+}
+
+// Discards all tabs and starts fresh with the empty.pde template.
+async function newSketch() {
+  if (!window.confirm("Discard the current sketch and start a new one?")) {
+    return;
+  }
+  const template = (await fetchPdeFile(EMPTY_FILE_PATH)) ?? NEW_SKETCH_TEMPLATE;
+  tabs = [makeTab("sketch.pde", template)];
+  activeTabId = tabs[0].id;
+  renderTabs();
+  loadActiveTabIntoEditor();
+  persistTabs();
+  stopPreview();
+  setStatus("New sketch created.");
 }
 
 function closeTab(id) {
@@ -121,6 +152,7 @@ function closeTab(id) {
     loadActiveTabIntoEditor();
   }
   renderTabs();
+  persistTabs();
   stopPreviewOnEdit();
 }
 
@@ -128,6 +160,51 @@ function closeTab(id) {
 function getCombinedSource() {
   commitEditorToActiveTab();
   return tabs.map((tab) => tab.code).join("\n\n");
+}
+
+// --- localStorage autosave -------------------------------------------------
+let persistTimer = null;
+
+// Writes the current tabs (names + code) and active index to localStorage.
+function persistTabs() {
+  try {
+    commitEditorToActiveTab();
+    const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === activeTabId));
+    const data = {
+      activeIndex,
+      tabs: tabs.map((tab) => ({ name: tab.name, code: tab.code }))
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // localStorage may be unavailable (private mode, quota) — ignore.
+  }
+}
+
+// Debounced persist for frequent events like typing.
+function schedulePersist() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+  }
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persistTabs();
+  }, 400);
+}
+
+function loadPersistedTabs() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.tabs) || data.tabs.length === 0) {
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 function beginRenameTab(tab, tabEl, nameButton) {
@@ -152,6 +229,7 @@ function beginRenameTab(tab, tabEl, nameButton) {
     }
     renderTabs();
     refreshPreviewTitle();
+    persistTabs();
   };
 
   input.addEventListener("blur", () => finish(true));
@@ -230,9 +308,10 @@ function setPreviewHeightFromCanvas(canvasHeight) {
   previewFrame.style.height = `${clamped}px`;
 }
 
-async function loadInitialSample() {
+// Fetches a .pde file shipped with the app; returns its text or null on error.
+async function fetchPdeFile(path) {
   try {
-    const response = await fetch(SAMPLE_FILE_PATH, { cache: "no-store" });
+    const response = await fetch(path, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -275,7 +354,10 @@ function updateLineNumbers() {
   const lineCount = Math.max(1, inputCode.value.split("\n").length);
   let numbers = "";
   for (let i = 1; i <= lineCount; i++) {
-    numbers += `${i}\n`;
+    // No trailing newline after the last number: a trailing "\n" renders an
+    // extra blank line in the gutter, making it taller than the code and
+    // causing the line numbers to drift when scrolling.
+    numbers += i === lineCount ? `${i}` : `${i}\n`;
   }
   lineNumbers.textContent = numbers;
 }
@@ -364,12 +446,31 @@ function toggleMenu() {
   }
 }
 
+// Reads the version from package.json so it only needs maintaining in one place.
+async function loadAppVersion() {
+  try {
+    const response = await fetch("./package.json", { cache: "no-store" });
+    if (!response.ok) {
+      return;
+    }
+    const pkg = await response.json();
+    if (pkg && typeof pkg.version === "string") {
+      appVersion = pkg.version;
+      if (aboutVersion) {
+        aboutVersion.textContent = appVersion;
+      }
+    }
+  } catch {
+    // Keep the fallback version.
+  }
+}
+
 function openAbout() {
   if (!aboutDialog) {
     return;
   }
   if (aboutVersion) {
-    aboutVersion.textContent = APP_VERSION;
+    aboutVersion.textContent = appVersion;
   }
   if (typeof aboutDialog.showModal === "function") {
     aboutDialog.showModal();
@@ -403,6 +504,7 @@ async function handleLoadPde(event) {
       tab.code = text;
       loadActiveTabIntoEditor();
       renderTabs();
+      persistTabs();
     }
     runTranspile();
     setStatus(`Loaded ${file.name}.`);
@@ -440,6 +542,7 @@ async function savePde() {
         activeTab.name = savedName;
         renderTabs();
         refreshPreviewTitle();
+        persistTabs();
       }
       setStatus(`Saved ${savedName}.`);
       return;
@@ -458,6 +561,7 @@ async function savePde() {
       activeTab.name = filename;
       renderTabs();
       refreshPreviewTitle();
+      persistTabs();
     }
     setStatus(`Saved ${filename}.`);
   } catch (error) {
@@ -609,6 +713,7 @@ function updatePreview(jsCode) {
   previewFrame.srcdoc = doc;
 }
 
+btnNewSketch.addEventListener("click", newSketch);
 btnLoad.addEventListener("click", triggerLoadPde);
 btnSave.addEventListener("click", savePde);
 btnExportJs.addEventListener("click", exportP5Project);
@@ -749,6 +854,7 @@ bindEditorKeyHandlers({
     updateLineNumbers();
     updateHighlight();
     syncLineNumberScroll();
+    schedulePersist();
   }
 });
 
@@ -756,10 +862,28 @@ inputCode.addEventListener("input", stopPreviewOnEdit);
 inputCode.addEventListener("input", updateLineNumbers);
 inputCode.addEventListener("input", updateHighlight);
 inputCode.addEventListener("input", editorAutocomplete.handleInput);
+inputCode.addEventListener("input", schedulePersist);
 inputCode.addEventListener("scroll", syncLineNumberScroll);
 
+// Flush the latest state before the page unloads so nothing is lost.
+window.addEventListener("beforeunload", persistTabs);
+
 async function initializeApp() {
-  const sampleSource = await loadInitialSample();
+  const persisted = loadPersistedTabs();
+
+  if (persisted) {
+    // Restore the autosaved tabs from a previous session.
+    tabs = persisted.tabs.map((tab) => makeTab(tab.name || "sketch.pde", tab.code || ""));
+    const index = Number.isInteger(persisted.activeIndex) ? persisted.activeIndex : 0;
+    activeTabId = (tabs[index] || tabs[0]).id;
+    renderTabs();
+    loadActiveTabIntoEditor();
+    setPreviewRunningState(false);
+    setStatus("Restored saved tabs. Press Play (F5) to run.");
+    return;
+  }
+
+  const sampleSource = await fetchPdeFile(SAMPLE_FILE_PATH);
   tabs = [makeTab("sketch.pde", sampleSource || "")];
   activeTabId = tabs[0].id;
   renderTabs();
@@ -775,4 +899,5 @@ async function initializeApp() {
   setStatus("Sample file could not be loaded.");
 }
 
+loadAppVersion();
 initializeApp();

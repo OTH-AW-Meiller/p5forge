@@ -44,6 +44,7 @@
               </svg>
             </button>
             <div class="menu-dropdown" id="menuDropdown" role="menu" hidden>
+              <button id="btnNewSketch" class="menu-item" role="menuitem" type="button">New Sketch</button>
               <button id="btnLoad" class="menu-item" role="menuitem" type="button">Load .pde</button>
               <button id="btnSave" class="menu-item" role="menuitem" type="button">Save .pde</button>
               <button id="btnExportJs" class="menu-item" role="menuitem" type="button">Export p5.js Project</button>
@@ -58,10 +59,19 @@
       <dialog id="aboutDialog" class="about-dialog">
         <div class="about-content">
           <h2>p5forge</h2>
-          <p class="about-tag">Processing (Java)-style to p5.js, directly in the browser</p>
+          <p class="about-tag">Processing (Java)-style in Browser</p>
+          <ul class="about-features">
+            <li>Java in the browser — no install</li>
+            <li>Java / Processing to p5.js (v2) compiler</li>
+            <li>Multiple code tabs, merged on compile</li>
+            <li>Syntax highlighting &amp; autocomplete</li>
+            <li>Floating live preview window</li>
+            <li>Autosave to browser local storage</li>
+            <li>Export as p5.js or Processing project (ZIP)</li>
+          </ul>
           <dl class="about-meta">
             <dt>Version</dt>
-            <dd id="aboutVersion">0.1.0</dd>
+            <dd id="aboutVersion">0.9.0</dd>
             <dt>Author</dt>
             <dd>Dieter Meiller</dd>
             <dt>GitHub</dt>
