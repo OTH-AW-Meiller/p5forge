@@ -718,8 +718,13 @@ body.preview-running .preview-panel {
   line-height: var(--code-line-height);
   letter-spacing: normal;
   tab-size: 4;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
+  /* No wrapping: a textarea and the <pre> highlight layer do not always wrap
+     long lines at the same column (notably an iOS Safari box-metric quirk),
+     which shifts everything after the wrap point by a row and desyncs the
+     visible (colored) text from the caret. Scrolling horizontally instead
+     keeps caret, highlight, and line numbers deterministically aligned. */
+  white-space: pre;
+  overflow-wrap: normal;
 }
 
 #highlightLayer {

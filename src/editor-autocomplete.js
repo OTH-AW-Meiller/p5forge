@@ -148,11 +148,25 @@ export function createEditorAutocomplete({ inputCode }) {
     const gutter = 52;
 
     const left = gutter + paddingLeft + (column * charWidth) - inputCode.scrollLeft;
-    const top = paddingTop + ((line + 1) * lineHeight) - inputCode.scrollTop + 2;
+    const lineTop = paddingTop + (line * lineHeight) - inputCode.scrollTop;
+    const belowTop = lineTop + lineHeight + 2;
 
     menu.style.left = `${Math.max(gutter + 6, left)}px`;
-    menu.style.top = `${Math.max(36, top)}px`;
+
+    // Reveal first so the menu has a measurable height, then decide where it
+    // fits. By default it opens below the current line; if that would run past
+    // the bottom of the editor (e.g. when editing the last lines, where the
+    // clipped overflow would hide it) and there is room above, flip it up.
     menu.hidden = false;
+    const containerHeight = host.clientHeight;
+    const menuHeight = menu.offsetHeight;
+    const aboveTop = lineTop - menuHeight - 2;
+    const top =
+      belowTop + menuHeight > containerHeight && aboveTop >= 0
+        ? aboveTop
+        : belowTop;
+
+    menu.style.top = `${Math.max(0, top)}px`;
   }
 
   function refreshSuggestions() {
