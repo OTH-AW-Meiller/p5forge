@@ -8,7 +8,8 @@ import { highlightToHtml } from "./editor-highlight.js";
 const inputCode = document.getElementById("inputCode");
 const lineNumbers = document.getElementById("lineNumbers");
 const highlightLayer = document.getElementById("highlightLayer");
-const sketchName = document.getElementById("sketchName");
+const tabStrip = document.getElementById("tabStrip");
+const btnAddTab = document.getElementById("btnAddTab");
 const fileInputPde = document.getElementById("fileInputPde");
 const btnLoad = document.getElementById("btnLoad");
 const btnSave = document.getElementById("btnSave");
@@ -27,6 +28,179 @@ let lastStatusMessage = statusText && typeof statusText.textContent === "string"
 const SAMPLE_FILE_PATH = "./sample.pde";
 const PLAY_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6L19 12L8 18Z" /></svg>';
 const STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>';
+
+// ---------------------------------------------------------------------------
+// Tabs — each tab is one Processing-style source file. Only the active tab is
+// shown in the (single) textarea; switching tabs swaps the text. On compile,
+// every tab's code is concatenated in tab order into one program.
+// ---------------------------------------------------------------------------
+let tabs = [];
+let activeTabId = null;
+let tabSeq = 0;
+
+function makeTab(name, code) {
+  tabSeq += 1;
+  return { id: `tab-${tabSeq}`, name, code: code ?? "" };
+}
+
+function getActiveTab() {
+  return tabs.find((tab) => tab.id === activeTabId) ?? null;
+}
+
+function mainSketchName() {
+  return tabs.length > 0 ? tabs[0].name : "sketch.pde";
+}
+
+function defaultTabName() {
+  let n = tabs.length + 1;
+  let name = `tab${n}.pde`;
+  while (tabs.some((tab) => tab.name === name)) {
+    n += 1;
+    name = `tab${n}.pde`;
+  }
+  return name;
+}
+
+// Persist the textarea's current text back into the active tab's model.
+function commitEditorToActiveTab() {
+  const tab = getActiveTab();
+  if (tab) {
+    tab.code = inputCode.value;
+  }
+}
+
+function loadActiveTabIntoEditor() {
+  const tab = getActiveTab();
+  inputCode.value = tab ? tab.code : "";
+  updateLineNumbers();
+  updateHighlight();
+  autoResizeEditor();
+  syncLineNumberScroll();
+}
+
+function setActiveTab(id) {
+  if (id === activeTabId) {
+    return;
+  }
+  commitEditorToActiveTab();
+  activeTabId = id;
+  loadActiveTabIntoEditor();
+  renderTabs();
+}
+
+function addTab() {
+  commitEditorToActiveTab();
+  const tab = makeTab(defaultTabName(), "");
+  tabs.push(tab);
+  activeTabId = tab.id;
+  loadActiveTabIntoEditor();
+  renderTabs();
+  stopPreviewOnEdit();
+}
+
+function closeTab(id) {
+  if (tabs.length <= 1) {
+    return;
+  }
+  const index = tabs.findIndex((tab) => tab.id === id);
+  if (index < 0) {
+    return;
+  }
+  const wasActive = id === activeTabId;
+  tabs.splice(index, 1);
+  if (wasActive) {
+    activeTabId = tabs[Math.max(0, index - 1)].id;
+    loadActiveTabIntoEditor();
+  }
+  renderTabs();
+  stopPreviewOnEdit();
+}
+
+// Combined source of all tabs, in order, for compilation.
+function getCombinedSource() {
+  commitEditorToActiveTab();
+  return tabs.map((tab) => tab.code).join("\n\n");
+}
+
+function beginRenameTab(tab, tabEl, nameButton) {
+  const input = document.createElement("input");
+  input.className = "tab-rename";
+  input.value = tab.name;
+  tabEl.replaceChild(input, nameButton);
+  input.focus();
+  input.select();
+
+  let finished = false;
+  const finish = (save) => {
+    if (finished) {
+      return;
+    }
+    finished = true;
+    if (save) {
+      const value = input.value.trim();
+      if (value) {
+        tab.name = value;
+      }
+    }
+    renderTabs();
+    refreshPreviewTitle();
+  };
+
+  input.addEventListener("blur", () => finish(true));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      finish(true);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      finish(false);
+    }
+  });
+}
+
+function renderTabs() {
+  if (!tabStrip) {
+    return;
+  }
+  tabStrip.textContent = "";
+  for (const tab of tabs) {
+    const tabEl = document.createElement("div");
+    tabEl.className = "editor-tab" + (tab.id === activeTabId ? " is-active" : "");
+    tabEl.dataset.id = tab.id;
+    tabEl.setAttribute("role", "tab");
+
+    const nameButton = document.createElement("button");
+    nameButton.type = "button";
+    nameButton.className = "tab-name";
+    nameButton.textContent = tab.name;
+    nameButton.title = "Click to open, double-click to rename";
+    nameButton.addEventListener("click", () => setActiveTab(tab.id));
+    nameButton.addEventListener("dblclick", () => beginRenameTab(tab, tabEl, nameButton));
+    tabEl.appendChild(nameButton);
+
+    if (tabs.length > 1) {
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.className = "tab-close";
+      closeButton.textContent = "×";
+      closeButton.title = "Close tab";
+      closeButton.setAttribute("aria-label", `Close ${tab.name}`);
+      closeButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        closeTab(tab.id);
+      });
+      tabEl.appendChild(closeButton);
+    }
+
+    tabStrip.appendChild(tabEl);
+  }
+}
+
+function refreshPreviewTitle() {
+  if (previewTitle && btnRun.dataset.running === "true") {
+    previewTitle.textContent = normalizePdeFileName(mainSketchName()).replace(/\.pde$/i, "");
+  }
+}
 
 
 function stopPreview() {
@@ -81,7 +255,7 @@ function setPreviewRunningState(isRunning) {
   btnRun.innerHTML = isRunning ? STOP_ICON_SVG : PLAY_ICON_SVG;
   document.body.classList.toggle("preview-running", isRunning);
   if (isRunning && previewTitle) {
-    previewTitle.textContent = normalizePdeFileName(sketchName.value).replace(/\.pde$/i, "");
+    previewTitle.textContent = normalizePdeFileName(mainSketchName()).replace(/\.pde$/i, "");
   }
 }
 
@@ -117,7 +291,7 @@ function updateHighlight() {
 
 function runTranspile() {
   try {
-    const source = inputCode.value ?? "";
+    const source = getCombinedSource();
     const { jsCode } = compileSource(source, "pde");
     const runnableCode = transpileProcessingApiToP5(jsCode);
     updatePreview(runnableCode);
@@ -162,12 +336,13 @@ async function handleLoadPde(event) {
 
   try {
     const text = await file.text();
-    inputCode.value = text;
-    sketchName.value = file.name;
-    updateLineNumbers();
-    updateHighlight();
-    autoResizeEditor();
-    syncLineNumberScroll();
+    const tab = getActiveTab();
+    if (tab) {
+      tab.name = file.name;
+      tab.code = text;
+      loadActiveTabIntoEditor();
+      renderTabs();
+    }
     runTranspile();
     setStatus(`Loaded ${file.name}.`);
   } catch (error) {
@@ -177,8 +352,10 @@ async function handleLoadPde(event) {
 
 async function savePde() {
   try {
-    const content = inputCode.value ?? "";
-    const filename = normalizePdeFileName(sketchName.value);
+    commitEditorToActiveTab();
+    const activeTab = getActiveTab();
+    const content = activeTab ? activeTab.code : "";
+    const filename = normalizePdeFileName(activeTab ? activeTab.name : mainSketchName());
     const hasNativeSaveDialog = typeof window.showSaveFilePicker === "function";
 
     if (hasNativeSaveDialog) {
@@ -197,8 +374,13 @@ async function savePde() {
       const writable = await handle.createWritable();
       await writable.write(content);
       await writable.close();
-      sketchName.value = normalizePdeFileName(handle.name || filename);
-      setStatus(`Saved ${sketchName.value}.`);
+      const savedName = normalizePdeFileName(handle.name || filename);
+      if (activeTab) {
+        activeTab.name = savedName;
+        renderTabs();
+        refreshPreviewTitle();
+      }
+      setStatus(`Saved ${savedName}.`);
       return;
     }
 
@@ -211,7 +393,11 @@ async function savePde() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    sketchName.value = filename;
+    if (activeTab) {
+      activeTab.name = filename;
+      renderTabs();
+      refreshPreviewTitle();
+    }
     setStatus(`Saved ${filename}.`);
   } catch (error) {
     if (error && error.name === "AbortError") {
@@ -225,10 +411,10 @@ async function savePde() {
 
 async function exportTranspiledJs() {
   try {
-    const source = inputCode.value ?? "";
+    const source = getCombinedSource();
     const { jsCode } = compileSource(source, "pde");
     const runnableCode = transpileProcessingApiToP5(jsCode);
-    const filename = normalizeJsFileName(sketchName.value);
+    const filename = normalizeJsFileName(mainSketchName());
     const hasNativeSaveDialog = typeof window.showSaveFilePicker === "function";
 
     if (hasNativeSaveDialog) {
@@ -306,6 +492,10 @@ fileInputPde.addEventListener("change", handleLoadPde);
 
 if (btnPreviewClose) {
   btnPreviewClose.addEventListener("click", stopPreview);
+}
+
+if (btnAddTab) {
+  btnAddTab.addEventListener("click", addTab);
 }
 
 // Floating preview window: drag it around by its titlebar (desktop only).
@@ -400,10 +590,10 @@ inputCode.addEventListener("scroll", syncLineNumberScroll);
 
 async function initializeApp() {
   const sampleSource = await loadInitialSample();
-  inputCode.value = sampleSource || "";
-  updateLineNumbers();
-  updateHighlight();
-  autoResizeEditor();
+  tabs = [makeTab("sketch.pde", sampleSource || "")];
+  activeTabId = tabs[0].id;
+  renderTabs();
+  loadActiveTabIntoEditor();
   setPreviewRunningState(false);
 
   if (sampleSource !== null) {
