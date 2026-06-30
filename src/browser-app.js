@@ -4,6 +4,7 @@ import { createPreviewHtml } from "./preview-template.js";
 import { bindEditorKeyHandlers, bindGlobalHotkeys } from "./keyboard-handlers.js";
 import { createEditorAutocomplete } from "./editor-autocomplete.js";
 import { highlightToHtml } from "./editor-highlight.js";
+import { createZipBlob } from "./zip.js";
 
 const inputCode = document.getElementById("inputCode");
 const lineNumbers = document.getElementById("lineNumbers");
@@ -14,18 +15,26 @@ const fileInputPde = document.getElementById("fileInputPde");
 const btnLoad = document.getElementById("btnLoad");
 const btnSave = document.getElementById("btnSave");
 const btnExportJs = document.getElementById("btnExportJs");
+const btnExportProcessing = document.getElementById("btnExportProcessing");
 const btnHelp = document.getElementById("btnHelp");
+const appMenu = document.getElementById("appMenu");
+const btnMenu = document.getElementById("btnMenu");
+const menuDropdown = document.getElementById("menuDropdown");
+const btnAbout = document.getElementById("btnAbout");
+const aboutDialog = document.getElementById("aboutDialog");
+const btnAboutClose = document.getElementById("btnAboutClose");
+const aboutVersion = document.getElementById("aboutVersion");
 const btnRun = document.getElementById("btnRun");
-const statusText = document.getElementById("statusText");
-const statusBar = statusText ? statusText.closest(".statusbar") : null;
+const consoleLog = document.getElementById("consoleLog");
 const previewFrame = document.getElementById("previewFrame");
 const previewWindow = document.getElementById("previewWindow");
 const previewTitlebar = document.getElementById("previewTitlebar");
 const previewTitle = document.getElementById("previewTitle");
 const btnPreviewClose = document.getElementById("btnPreviewClose");
 const editorAutocomplete = createEditorAutocomplete({ inputCode });
-let lastStatusMessage = statusText && typeof statusText.textContent === "string" ? statusText.textContent : "";
+const MAX_CONSOLE_LINES = 200;
 const SAMPLE_FILE_PATH = "./sample.pde";
+const APP_VERSION = "0.1.0";
 const PLAY_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6L19 12L8 18Z" /></svg>';
 const STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>';
 
@@ -74,7 +83,6 @@ function loadActiveTabIntoEditor() {
   inputCode.value = tab ? tab.code : "";
   updateLineNumbers();
   updateHighlight();
-  autoResizeEditor();
   syncLineNumberScroll();
 }
 
@@ -234,17 +242,21 @@ async function loadInitialSample() {
   }
 }
 
+// Appends a line to the console-style status area and scrolls to the bottom.
 function setStatus(message) {
-  const nextMessage = String(message);
-  const hasChanged = nextMessage !== lastStatusMessage;
-  statusText.textContent = nextMessage;
-  lastStatusMessage = nextMessage;
-
-  if (hasChanged && statusBar) {
-    statusBar.classList.remove("statusbar-flash");
-    void statusBar.offsetWidth;
-    statusBar.classList.add("statusbar-flash");
+  if (!consoleLog) {
+    return;
   }
+  const line = document.createElement("div");
+  line.className = "console-line";
+  line.textContent = String(message);
+  consoleLog.appendChild(line);
+
+  while (consoleLog.childElementCount > MAX_CONSOLE_LINES) {
+    consoleLog.removeChild(consoleLog.firstElementChild);
+  }
+
+  consoleLog.scrollTop = consoleLog.scrollHeight;
 }
 
 function setPreviewRunningState(isRunning) {
@@ -268,13 +280,6 @@ function updateLineNumbers() {
   lineNumbers.textContent = numbers;
 }
 
-function autoResizeEditor() {
-  inputCode.style.height = "auto";
-  const nextHeight = Math.max(inputCode.scrollHeight, 320);
-  inputCode.style.height = `${nextHeight}px`;
-  lineNumbers.style.height = `${nextHeight}px`;
-}
-
 function syncLineNumberScroll() {
   lineNumbers.scrollTop = inputCode.scrollTop;
   if (highlightLayer) {
@@ -289,7 +294,15 @@ function updateHighlight() {
   }
 }
 
+function clearConsole() {
+  if (consoleLog) {
+    consoleLog.textContent = "";
+  }
+}
+
 function runTranspile() {
+  // Each (re)start of the sketch begins with a fresh console.
+  clearConsole();
   try {
     const source = getCombinedSource();
     const { jsCode } = compileSource(source, "pde");
@@ -326,6 +339,54 @@ function triggerLoadPde() {
 
 function openProcessingReference() {
   window.open("https://processing.org/reference/", "_blank", "noopener,noreferrer");
+}
+
+function closeMenu() {
+  if (!menuDropdown || menuDropdown.hidden) {
+    return;
+  }
+  menuDropdown.hidden = true;
+  document.body.classList.remove("menu-open");
+  if (btnMenu) {
+    btnMenu.setAttribute("aria-expanded", "false");
+  }
+}
+
+function toggleMenu() {
+  if (!menuDropdown) {
+    return;
+  }
+  const open = menuDropdown.hidden;
+  menuDropdown.hidden = !open;
+  document.body.classList.toggle("menu-open", open);
+  if (btnMenu) {
+    btnMenu.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+}
+
+function openAbout() {
+  if (!aboutDialog) {
+    return;
+  }
+  if (aboutVersion) {
+    aboutVersion.textContent = APP_VERSION;
+  }
+  if (typeof aboutDialog.showModal === "function") {
+    aboutDialog.showModal();
+  } else {
+    aboutDialog.setAttribute("open", "");
+  }
+}
+
+function closeAbout() {
+  if (!aboutDialog) {
+    return;
+  }
+  if (typeof aboutDialog.close === "function") {
+    aboutDialog.close();
+  } else {
+    aboutDialog.removeAttribute("open");
+  }
 }
 
 async function handleLoadPde(event) {
@@ -409,50 +470,115 @@ async function savePde() {
   }
 }
 
-async function exportTranspiledJs() {
+const P5_CDN_URL = "https://cdn.jsdelivr.net/npm/p5@2.3.0/lib/p5.min.js";
+
+function buildProjectIndexHtml(title) {
+  const safeTitle = String(title).replace(/[<>&]/g, (ch) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[ch]));
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${safeTitle}</title>
+    <style>
+      html, body { margin: 0; padding: 0; background: #061118; }
+      canvas { display: block; margin: 0 auto; }
+    </style>
+  </head>
+  <body>
+    <!-- p5.js 2.x -->
+    <script src="${P5_CDN_URL}"></script>
+    <!-- Processing-style runtime helpers (PVector, PShape, ArrayList, ...) -->
+    <script src="processing-defs.js"></script>
+    <!-- Processing print helpers (p5 has no println) -->
+    <script>
+      if (typeof window.println !== "function") {
+        window.println = function () { console.log.apply(console, arguments); };
+      }
+    </script>
+    <!-- Transpiled sketch -->
+    <script src="sketch.js"></script>
+  </body>
+</html>
+`;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// Project / ZIP name derived from the first tab, with any extension removed
+// and made filename-safe.
+function projectBaseName() {
+  const stripped = (mainSketchName() || "").trim().replace(/\.(pde|js)$/i, "");
+  const safe = stripped.replace(/[\\/:*?"<>|]/g, "_").trim();
+  return safe || "sketch";
+}
+
+async function exportP5Project() {
   try {
     const source = getCombinedSource();
     const { jsCode } = compileSource(source, "pde");
     const runnableCode = transpileProcessingApiToP5(jsCode);
-    const filename = normalizeJsFileName(mainSketchName());
-    const hasNativeSaveDialog = typeof window.showSaveFilePicker === "function";
+    // Drop the ESM import line; the project loads processing-defs.js via a
+    // <script> tag instead.
+    const sketchJs = runnableCode
+      .replace(/^\s*import\s+["'][^"']+["'];?\s*$/gm, "")
+      .replace(/^\n+/, "");
 
-    if (hasNativeSaveDialog) {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: filename,
-        types: [
-          {
-            description: "JavaScript file",
-            accept: {
-              "text/javascript": [".js"]
-            }
-          }
-        ]
-      });
+    const baseName = projectBaseName();
 
-      const writable = await handle.createWritable();
-      await writable.write(runnableCode);
-      await writable.close();
-      setStatus(`Exported ${handle.name || filename}.`);
-      return;
+    const defsResponse = await fetch("./processing-defs.js", { cache: "no-store" });
+    if (!defsResponse.ok) {
+      throw new Error(`Could not load processing-defs.js (HTTP ${defsResponse.status})`);
     }
+    const processingDefs = await defsResponse.text();
 
-    const blob = new Blob([runnableCode], { type: "text/javascript;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setStatus(`Exported ${filename}.`);
+    const blob = createZipBlob([
+      { name: "index.html", content: buildProjectIndexHtml(baseName) },
+      { name: "sketch.js", content: sketchJs },
+      { name: "processing-defs.js", content: processingDefs }
+    ]);
+
+    downloadBlob(blob, `${baseName}.zip`);
+    setStatus(`Exported ${baseName}.zip (p5.js project).`);
   } catch (error) {
-    if (error && error.name === "AbortError") {
-      setStatus("Export canceled.");
-      return;
-    }
+    setStatus(`Export failed: ${error.message}`);
+  }
+}
 
+// Exports the tabs as a Processing sketch folder: one .pde file per tab inside
+// a folder named after the sketch, with the main (first) tab's file matching
+// the folder name — the layout Processing expects.
+function exportProcessingProject() {
+  try {
+    commitEditorToActiveTab();
+    const base = projectBaseName();
+    const usedNames = new Set();
+
+    const files = tabs.map((tab, index) => {
+      const wanted = index === 0 ? `${base}.pde` : normalizePdeFileName(tab.name);
+      let candidate = wanted;
+      let suffix = 2;
+      while (usedNames.has(candidate.toLowerCase())) {
+        candidate = `${wanted.replace(/\.pde$/i, "")}_${suffix}.pde`;
+        suffix += 1;
+      }
+      usedNames.add(candidate.toLowerCase());
+      return { name: `${base}/${candidate}`, content: tab.code };
+    });
+
+    const blob = createZipBlob(files);
+    downloadBlob(blob, `${base}.zip`);
+    setStatus(`Exported ${base}.zip (Processing project).`);
+  } catch (error) {
     setStatus(`Export failed: ${error.message}`);
   }
 }
@@ -485,10 +611,56 @@ function updatePreview(jsCode) {
 
 btnLoad.addEventListener("click", triggerLoadPde);
 btnSave.addEventListener("click", savePde);
-btnExportJs.addEventListener("click", exportTranspiledJs);
+btnExportJs.addEventListener("click", exportP5Project);
+btnExportProcessing.addEventListener("click", exportProcessingProject);
 btnHelp.addEventListener("click", openProcessingReference);
 btnRun.addEventListener("click", togglePreviewRunState);
 fileInputPde.addEventListener("change", handleLoadPde);
+
+if (btnMenu) {
+  btnMenu.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleMenu();
+  });
+}
+
+if (menuDropdown) {
+  // Any menu item closes the menu after its own click handler runs.
+  menuDropdown.addEventListener("click", (event) => {
+    if (event.target.closest(".menu-item")) {
+      closeMenu();
+    }
+  });
+}
+
+if (btnAbout) {
+  btnAbout.addEventListener("click", openAbout);
+}
+
+if (btnAboutClose) {
+  btnAboutClose.addEventListener("click", closeAbout);
+}
+
+if (aboutDialog) {
+  // Close when clicking the backdrop (outside the content box).
+  aboutDialog.addEventListener("click", (event) => {
+    if (event.target === aboutDialog) {
+      closeAbout();
+    }
+  });
+}
+
+document.addEventListener("click", (event) => {
+  if (appMenu && !appMenu.contains(event.target)) {
+    closeMenu();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeMenu();
+  }
+});
 
 if (btnPreviewClose) {
   btnPreviewClose.addEventListener("click", stopPreview);
@@ -576,7 +748,6 @@ bindEditorKeyHandlers({
     stopPreviewOnEdit();
     updateLineNumbers();
     updateHighlight();
-    autoResizeEditor();
     syncLineNumberScroll();
   }
 });
@@ -584,7 +755,6 @@ bindEditorKeyHandlers({
 inputCode.addEventListener("input", stopPreviewOnEdit);
 inputCode.addEventListener("input", updateLineNumbers);
 inputCode.addEventListener("input", updateHighlight);
-inputCode.addEventListener("input", autoResizeEditor);
 inputCode.addEventListener("input", editorAutocomplete.handleInput);
 inputCode.addEventListener("scroll", syncLineNumberScroll);
 
@@ -594,14 +764,14 @@ async function initializeApp() {
   activeTabId = tabs[0].id;
   renderTabs();
   loadActiveTabIntoEditor();
+  // Start stopped: the sketch only runs when the user presses Play (F5).
   setPreviewRunningState(false);
 
   if (sampleSource !== null) {
-    runTranspile();
+    setStatus("Ready. Press Play (F5) to run.");
     return;
   }
 
-  stopPreview();
   setStatus("Sample file could not be loaded.");
 }
 

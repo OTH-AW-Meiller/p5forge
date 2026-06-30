@@ -48,6 +48,12 @@ body::before {
 }
 
 .topbar {
+  position: relative;
+  /* Above the toolbar/editors, but below the floating preview window (z 200)
+     so the running sketch floats in front of the header. While the menu is
+     open we raise it above the sketch (see body.menu-open) so the dropdown
+     stays usable. backdrop-filter creates a stacking context, hence z-index. */
+  z-index: 100;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -188,6 +194,125 @@ button {
   color: #88e9bc;
 }
 
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu {
+  position: relative;
+  display: inline-block;
+}
+
+/* While the menu is open, lift the whole header above the floating sketch
+   window so the dropdown is not covered by it. */
+body.menu-open .topbar {
+  z-index: 300;
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 6px;
+  background: rgba(4, 16, 22, 0.98);
+  border: 1px solid rgba(20, 240, 143, 0.45);
+  border-radius: 10px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5), 0 0 18px rgba(20, 240, 143, 0.15);
+}
+
+.menu-dropdown[hidden] {
+  display: none;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9dfacd;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: rgba(20, 240, 143, 0.16);
+  outline: none;
+  transform: none;
+}
+
+.about-dialog {
+  margin: auto;
+  padding: 0;
+  border: 1px solid rgba(20, 240, 143, 0.45);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--editor-ink, #8bfec4);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 26px rgba(20, 240, 143, 0.18);
+}
+
+.about-dialog::backdrop {
+  background: rgba(2, 8, 11, 0.62);
+  backdrop-filter: blur(2px);
+}
+
+.about-content {
+  padding: 22px 24px;
+  max-width: 360px;
+}
+
+.about-content h2 {
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
+}
+
+.about-tag {
+  margin: 4px 0 16px;
+  color: #7adbb5;
+  font-size: 0.85rem;
+}
+
+.about-meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+}
+
+.about-meta dt {
+  color: #6fbd9d;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  align-self: center;
+}
+
+.about-meta dd {
+  margin: 0;
+  color: #d7ffe8;
+}
+
+.about-meta a {
+  color: #00d9ff;
+}
+
+#btnAboutClose {
+  width: 100%;
+}
+
 .btn-secondary:hover {
   background: rgba(11, 40, 50, 0.95);
 }
@@ -253,6 +378,45 @@ body.preview-running .preview-panel {
 }
 
 @media (min-width: 901px) {
+  /* On the desktop the app fills the viewport exactly and never scrolls the
+     window; the editor and console scroll internally instead. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .editors {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .editor-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .editor-shell {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .editor-body {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+
   /* Floating sketch window, like the standalone Processing display window. */
   body.preview-running .preview-panel {
     position: fixed;
@@ -494,9 +658,9 @@ body.preview-running .preview-panel {
 .editor-body {
   display: grid;
   grid-template-columns: 52px 1fr;
-  min-height: 54vh;
+  height: 60vh;
   background: var(--editor-bg);
-  align-items: start;
+  align-items: stretch;
   position: relative;
 }
 
@@ -521,7 +685,8 @@ body.preview-running .preview-panel {
   --code-line-step: calc(var(--code-font-size) * var(--code-line-height));
   position: relative;
   width: 100%;
-  min-height: 54vh;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* The highlight layer and the textarea must share identical box metrics so the
@@ -531,7 +696,7 @@ body.preview-running .preview-panel {
   box-sizing: border-box;
   margin: 0;
   width: 100%;
-  min-height: 54vh;
+  height: 100%;
   padding: 12px;
   border: 0;
   font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
@@ -570,7 +735,8 @@ body.preview-running .preview-panel {
   background: transparent;
   color: transparent;
   caret-color: #d7ffe8;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-width: thin;
 }
 
 #inputCode::selection {
@@ -710,9 +876,25 @@ body.preview-running .preview-panel {
   animation: statusbarSweep 760ms ease-out 1;
 }
 
-#statusText {
+.console {
   position: relative;
   z-index: 1;
+  height: 140px;
+  max-height: 24vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #9dfacd;
+  scrollbar-width: thin;
+}
+
+.console-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 @keyframes statusbarSweep {
@@ -787,11 +969,8 @@ body.preview-running .preview-panel {
     grid-template-columns: 1fr;
   }
 
-  .editor-body,
-  .code-area,
-  #highlightLayer,
-  #inputCode {
-    min-height: 38vh;
+  .editor-body {
+    height: 52vh;
   }
 }
 
@@ -864,7 +1043,7 @@ body.preview-running .preview-panel {
 
   .editor-body {
     grid-template-columns: 40px 1fr;
-    min-height: 46vh;
+    height: 46vh;
   }
 
   #lineNumbers {
@@ -879,7 +1058,6 @@ body.preview-running .preview-panel {
 
   #inputCode,
   #highlightLayer {
-    min-height: 46vh;
     padding: 10px;
   }
 

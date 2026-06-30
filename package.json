@@ -16,5 +16,11 @@
     "java",
     "javascript"
   ],
+  "author": "Dieter Meiller",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OTH-AW-Meiller/p5forge.git"
+  },
+  "homepage": "https://github.com/OTH-AW-Meiller/p5forge",
   "license": "MIT"
 }

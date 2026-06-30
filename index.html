@@ -27,26 +27,52 @@
         </div>
         <div class="topbar-text">
           <h1>p5forge</h1>
-          <p>Processing (Java)-style to p5.js JavaScript directly in the browser</p>
+          <p>Processing (Java)-style in Browser</p>
+        </div>
+        <div class="header-actions">
+          <button id="btnRun" class="icon-btn" type="button" aria-label="Run preview" title="Run (F5)">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6L19 12L8 18Z" /></svg>
+          </button>
+          <span class="hotkey-hint" aria-hidden="true">F5</span>
+          <input id="fileInputPde" type="file" accept=".pde,text/plain" hidden />
+          <div class="menu" id="appMenu">
+            <button id="btnMenu" class="icon-btn btn-secondary menu-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menuDropdown" aria-label="Menu" title="Menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="3" y="5" width="18" height="2" rx="1" />
+                <rect x="3" y="11" width="18" height="2" rx="1" />
+                <rect x="3" y="17" width="18" height="2" rx="1" />
+              </svg>
+            </button>
+            <div class="menu-dropdown" id="menuDropdown" role="menu" hidden>
+              <button id="btnLoad" class="menu-item" role="menuitem" type="button">Load .pde</button>
+              <button id="btnSave" class="menu-item" role="menuitem" type="button">Save .pde</button>
+              <button id="btnExportJs" class="menu-item" role="menuitem" type="button">Export p5.js Project</button>
+              <button id="btnExportProcessing" class="menu-item" role="menuitem" type="button">Export Processing Project</button>
+              <button id="btnHelp" class="menu-item" role="menuitem" type="button">Help</button>
+              <button id="btnAbout" class="menu-item" role="menuitem" type="button">About</button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <section class="toolbar">
-          <button id="btnRun" class="icon-btn" type="button" aria-label="Run preview" title="Run (F5)">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path d="M8 6L19 12L8 18Z" />
-                </svg>
-            </button>
-            <span class="hotkey-hint" aria-hidden="true">F5</span>
-            <input id="fileInputPde" type="file" accept=".pde,text/plain" hidden />
-            <button id="btnLoad" class="btn-secondary" type="button">Load .pde</button>
-            <button id="btnSave" class="btn-secondary" type="button">Save .pde</button>
-            <button id="btnExportJs" class="btn-secondary" type="button">Export .js</button>
-            <button id="btnHelp" class="btn-secondary" type="button" title="Open Processing Reference">Help</button>
-      </section>
+      <dialog id="aboutDialog" class="about-dialog">
+        <div class="about-content">
+          <h2>p5forge</h2>
+          <p class="about-tag">Processing (Java)-style to p5.js, directly in the browser</p>
+          <dl class="about-meta">
+            <dt>Version</dt>
+            <dd id="aboutVersion">0.1.0</dd>
+            <dt>Author</dt>
+            <dd>Dieter Meiller</dd>
+            <dt>GitHub</dt>
+            <dd><a href="https://github.com/OTH-AW-Meiller/p5forge" target="_blank" rel="noopener noreferrer">OTH-AW-Meiller/p5forge</a></dd>
+          </dl>
+          <button id="btnAboutClose" class="btn-secondary" type="button">Close</button>
+        </div>
+      </dialog>
 
       <section class="statusbar">
-        <span id="statusText">Ready.</span>
+        <div class="console" id="consoleLog" role="log" aria-live="polite"></div>
       </section>
 
       <section class="editors">
