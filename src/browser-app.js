@@ -372,7 +372,20 @@ function syncLineNumberScroll() {
 
 function updateHighlight() {
   if (highlightLayer) {
-    highlightLayer.innerHTML = highlightToHtml(inputCode.value);
+    // Keep the highlight layer at least as tall as the textarea. A textarea
+    // whose value ends in "\n" shows a visible empty final line, but a <pre>
+    // gives a lone trailing newline no line box of its own — so the layer is
+    // one line shorter, and when scrolled to the bottom its clamped scrollTop
+    // leaves the colored text a line above the caret (typed characters appear
+    // a line lower). Appending "\n " forces that final line to have real
+    // height; the extra space is invisible and only adds harmless scroll room.
+    highlightLayer.innerHTML = highlightToHtml(inputCode.value) + "\n ";
+    // Sync now, then again after the browser auto-scrolls the textarea to
+    // reveal the caret. That caret-reveal scroll happens after this handler
+    // and does not reliably fire a "scroll" event, so without the rAF pass the
+    // layer keeps the pre-edit scroll position and drifts a line behind.
+    syncLineNumberScroll();
+    requestAnimationFrame(syncLineNumberScroll);
   }
 }
 
