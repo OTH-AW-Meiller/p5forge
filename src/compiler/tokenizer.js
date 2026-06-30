@@ -1,4 +1,4 @@
-const KEYWORDS = new Set([
+export const KEYWORDS = new Set([
   "import",
   "export",
   "from",

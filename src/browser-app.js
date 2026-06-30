@@ -3,9 +3,11 @@ import { transpileProcessingApiToP5 } from "./p5-post-transpiler.js";
 import { createPreviewHtml } from "./preview-template.js";
 import { bindEditorKeyHandlers, bindGlobalHotkeys } from "./keyboard-handlers.js";
 import { createEditorAutocomplete } from "./editor-autocomplete.js";
+import { highlightToHtml } from "./editor-highlight.js";
 
 const inputCode = document.getElementById("inputCode");
 const lineNumbers = document.getElementById("lineNumbers");
+const highlightLayer = document.getElementById("highlightLayer");
 const sketchName = document.getElementById("sketchName");
 const fileInputPde = document.getElementById("fileInputPde");
 const btnLoad = document.getElementById("btnLoad");
@@ -93,6 +95,16 @@ function autoResizeEditor() {
 
 function syncLineNumberScroll() {
   lineNumbers.scrollTop = inputCode.scrollTop;
+  if (highlightLayer) {
+    highlightLayer.scrollTop = inputCode.scrollTop;
+    highlightLayer.scrollLeft = inputCode.scrollLeft;
+  }
+}
+
+function updateHighlight() {
+  if (highlightLayer) {
+    highlightLayer.innerHTML = highlightToHtml(inputCode.value);
+  }
 }
 
 function runTranspile() {
@@ -145,6 +157,7 @@ async function handleLoadPde(event) {
     inputCode.value = text;
     sketchName.value = file.name;
     updateLineNumbers();
+    updateHighlight();
     autoResizeEditor();
     syncLineNumberScroll();
     runTranspile();
@@ -314,6 +327,7 @@ bindEditorKeyHandlers({
   onAfterEdit: () => {
     stopPreviewOnEdit();
     updateLineNumbers();
+    updateHighlight();
     autoResizeEditor();
     syncLineNumberScroll();
   }
@@ -321,6 +335,7 @@ bindEditorKeyHandlers({
 
 inputCode.addEventListener("input", stopPreviewOnEdit);
 inputCode.addEventListener("input", updateLineNumbers);
+inputCode.addEventListener("input", updateHighlight);
 inputCode.addEventListener("input", autoResizeEditor);
 inputCode.addEventListener("input", editorAutocomplete.handleInput);
 inputCode.addEventListener("scroll", syncLineNumberScroll);
@@ -329,6 +344,7 @@ async function initializeApp() {
   const sampleSource = await loadInitialSample();
   inputCode.value = sampleSource || "";
   updateLineNumbers();
+  updateHighlight();
   autoResizeEditor();
   setPreviewRunningState(false);
 

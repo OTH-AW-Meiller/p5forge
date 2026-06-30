@@ -323,15 +323,41 @@ button:hover {
   user-select: none;
 }
 
-#inputCode {
+.code-area {
   --code-font-size: 0.9rem;
   --code-line-height: 1.5;
   --code-line-step: calc(var(--code-font-size) * var(--code-line-height));
+  position: relative;
   width: 100%;
   min-height: 54vh;
-  resize: none;
+}
+
+/* The highlight layer and the textarea must share identical box metrics so the
+   colored text sits exactly behind the (transparent) editable text. */
+#highlightLayer,
+#inputCode {
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+  min-height: 54vh;
+  padding: 12px;
   border: 0;
-  border-radius: 0;
+  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
+  font-size: var(--code-font-size);
+  line-height: var(--code-line-height);
+  letter-spacing: normal;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+#highlightLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--editor-ink);
   background-color: transparent;
   background-image: repeating-linear-gradient(
     to bottom,
@@ -342,17 +368,51 @@ button:hover {
   );
   background-origin: content-box;
   background-clip: content-box;
-  color: var(--editor-ink);
-  padding: 12px;
-  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
-  font-size: var(--code-font-size);
-  line-height: var(--code-line-height);
+}
+
+#inputCode {
+  position: relative;
+  z-index: 1;
+  resize: none;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
   caret-color: #d7ffe8;
   overflow: hidden;
 }
 
+#inputCode::selection {
+  background: rgba(0, 217, 255, 0.3);
+}
+
 #inputCode:focus {
   outline: none;
+}
+
+.tok-keyword {
+  color: #00d9ff;
+}
+
+.tok-type {
+  color: #00fca8;
+}
+
+.tok-string {
+  color: #ffd479;
+}
+
+.tok-number {
+  color: #ff9e64;
+}
+
+.tok-comment {
+  color: #5d7a72;
+  font-style: italic;
+}
+
+.tok-annotation {
+  color: #b98cff;
+  font-style: italic;
 }
 
 .editor-autocomplete {
@@ -536,6 +596,8 @@ button:hover {
   }
 
   .editor-body,
+  .code-area,
+  #highlightLayer,
   #inputCode {
     min-height: 38vh;
   }
