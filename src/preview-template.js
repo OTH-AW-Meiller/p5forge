@@ -210,7 +210,7 @@ export function createPreviewHtml(jsCode) {
           runSketch,
           function () {
             loadScript(
-              "https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js",
+              "https://cdn.jsdelivr.net/npm/p5@2.3.0/lib/p5.min.js",
               runSketch,
               function () {
                 showBootError("Failed to load p5.js from local vendor and CDN.");

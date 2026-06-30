@@ -24,17 +24,74 @@ function mapSpecialMemberChain(expr) {
   return null;
 }
 
+// p5.js 2.0 turned these asset loaders into async functions that return a
+// Promise. Calls to them must be awaited inside an async function, otherwise
+// the variable holds a pending Promise instead of the loaded asset.
+const ASYNC_LOADER_FUNCTIONS = new Set([
+  "loadImage",
+  "loadFont",
+  "loadJSON",
+  "loadStrings",
+  "loadTable",
+  "loadXML",
+  "loadBytes",
+  "loadModel",
+  "loadShader",
+  // requestImage() was removed in p5.js 2.0; the now-async loadImage() is its
+  // replacement (see LOADER_RENAMES).
+  "requestImage"
+]);
+
+// Processing/p5 v1 function names that must be rewritten to their p5.js 2.0
+// equivalent.
+const LOADER_RENAMES = new Map([["requestImage", "loadImage"]]);
+
+function isAsyncLoaderCall(expr) {
+  return (
+    expr &&
+    expr.type === "CallExpression" &&
+    expr.callee &&
+    expr.callee.type === "Identifier" &&
+    ASYNC_LOADER_FUNCTIONS.has(expr.callee.name)
+  );
+}
+
+// Walks an AST subtree looking for a direct call to a p5 async loader so the
+// enclosing function can be marked `async`.
+function containsAsyncLoaderCall(node) {
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+  if (Array.isArray(node)) {
+    return node.some(containsAsyncLoaderCall);
+  }
+  if (isAsyncLoaderCall(node)) {
+    return true;
+  }
+  for (const key of Object.keys(node)) {
+    if (key === "type") {
+      continue;
+    }
+    if (containsAsyncLoaderCall(node[key])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function createGeneratorContext(
   instanceFieldNames,
   localNames = new Set(),
   inStaticMethod = false,
-  instanceMethodNames = new Set()
+  instanceMethodNames = new Set(),
+  isAsync = false
 ) {
   return {
     instanceFieldNames,
     instanceMethodNames,
     localNames,
-    inStaticMethod
+    inStaticMethod,
+    isAsync
   };
 }
 
@@ -43,7 +100,8 @@ function cloneContextWithLocalNames(context, localNames) {
     instanceFieldNames: context.instanceFieldNames,
     instanceMethodNames: context.instanceMethodNames,
     localNames,
-    inStaticMethod: context.inStaticMethod
+    inStaticMethod: context.inStaticMethod,
+    isAsync: context.isAsync
   };
 }
 
@@ -240,9 +298,11 @@ function generateFlattenedPdeClass(cls) {
 function generateGlobalMethod(method) {
   const params = method.params.map((p) => p.name).join(", ");
   const localNames = new Set(method.params.map((p) => p.name));
-  const context = createGeneratorContext(new Set(), localNames, false, new Set());
+  const isAsync = containsAsyncLoaderCall(method.body);
+  const context = createGeneratorContext(new Set(), localNames, false, new Set(), isAsync);
   const body = generateBlock(method.body, 0, context);
-  return `function ${method.name}(${params}) ${body}`;
+  const asyncPrefix = isAsync ? "async " : "";
+  return `${asyncPrefix}function ${method.name}(${params}) ${body}`;
 }
 
 function collectEffectiveInstanceFields(cls, classMap, visited = new Set()) {
@@ -349,14 +409,17 @@ function generateMethod(method, level, instanceFieldNames, instanceMethodNames =
   const staticPrefix = method.modifiers.includes("static") ? "static " : "";
   const params = method.params.map((p) => p.name).join(", ");
   const localNames = new Set(method.params.map((p) => p.name));
+  const isAsync = containsAsyncLoaderCall(method.body);
   const context = createGeneratorContext(
     instanceFieldNames,
     localNames,
     method.modifiers.includes("static"),
-    instanceMethodNames
+    instanceMethodNames,
+    isAsync
   );
   const body = generateBlock(method.body, level, context);
-  return `${indent(level)}${staticPrefix}${method.name}(${params}) ${body}`;
+  const asyncPrefix = isAsync ? "async " : "";
+  return `${indent(level)}${staticPrefix}${asyncPrefix}${method.name}(${params}) ${body}`;
 }
 
 function generateConstructor(
@@ -660,9 +723,14 @@ function generateExpression(expr, context = null) {
     case "IndexExpression":
       return `${generateExpression(expr.object, context)}[${generateExpression(expr.index, context)}]`;
     case "CallExpression": {
-      const callee = generateExpression(expr.callee, context);
+      const renamed =
+        expr.callee.type === "Identifier" && LOADER_RENAMES.has(expr.callee.name)
+          ? LOADER_RENAMES.get(expr.callee.name)
+          : null;
+      const callee = renamed ?? generateExpression(expr.callee, context);
       const args = expr.arguments.map((arg) => generateExpression(arg, context)).join(", ");
-      return `${callee}(${args})`;
+      const awaitPrefix = context && context.isAsync && isAsyncLoaderCall(expr) ? "await " : "";
+      return `${awaitPrefix}${callee}(${args})`;
     }
     case "NewExpression": {
       const args = expr.arguments.map((arg) => generateExpression(arg, context)).join(", ");
