@@ -160,6 +160,55 @@ export function tokenize(source) {
       continue;
     }
 
+    // Annotations (e.g. @Override, @FunctionalInterface, @SuppressWarnings("x"))
+    // carry no meaning for transpilation. Skip them wherever they appear, just
+    // like a comment — their location is irrelevant.
+    if (ch === "@") {
+      advance();
+      while (i < source.length && isWhitespace(current())) {
+        advance();
+      }
+      // Annotation name, optionally qualified with dots (@org.junit.Test).
+      while (
+        i < source.length &&
+        (isIdentifierPart(current()) || current() === ".")
+      ) {
+        advance();
+      }
+      // Optional argument list, e.g. @SuppressWarnings("unchecked").
+      let j = i;
+      while (j < source.length && isWhitespace(source[j])) {
+        j += 1;
+      }
+      if (source[j] === "(") {
+        while (i < j) {
+          advance();
+        }
+        let depth = 0;
+        do {
+          const c = current();
+          if (c === '"' || c === "'") {
+            advance();
+            while (i < source.length && current() !== c) {
+              if (current() === "\\") {
+                advance();
+              }
+              advance();
+            }
+            advance();
+            continue;
+          }
+          if (c === "(") {
+            depth += 1;
+          } else if (c === ")") {
+            depth -= 1;
+          }
+          advance();
+        } while (i < source.length && depth > 0);
+      }
+      continue;
+    }
+
     const startLine = line;
     const startColumn = column;
 
