@@ -1,5 +1,5 @@
-const TYPE_KEYWORDS = new Set(["int", "double", "boolean", "String", "void"]);
-const MODIFIERS = new Set(["public", "private", "protected", "static"]);
+const TYPE_KEYWORDS = new Set(["int", "float", "double", "boolean", "String", "void"]);
+const MODIFIERS = new Set(["public", "private", "protected", "static", "abstract"]);
 
 export function parse(tokens) {
   let pos = 0;
@@ -201,6 +201,8 @@ export function parse(tokens) {
       imports.push(parseImportDeclaration());
     }
 
+    const enums = [];
+    const interfaces = [];
     const classes = [];
     while (!isAtEnd()) {
       if (check("keyword", "export")) {
@@ -209,10 +211,31 @@ export function parse(tokens) {
           `Unsupported legacy syntax 'export class' at ${token.line}:${token.column}. Use 'public class'.`
         );
       }
-      classes.push(parseClassDeclaration());
+
+      const declarationModifiers = parseModifiers();
+
+      if (check("keyword", "enum")) {
+        enums.push(parseEnumDeclaration(declarationModifiers));
+        continue;
+      }
+
+      if (check("keyword", "interface")) {
+        interfaces.push(parseInterfaceDeclaration(declarationModifiers));
+        continue;
+      }
+
+      if (check("keyword", "class")) {
+        classes.push(parseClassDeclaration(declarationModifiers));
+        continue;
+      }
+
+      const token = current();
+      throw new Error(
+        `Expected top-level declaration ('class', 'interface', or 'enum') at ${token.line}:${token.column}`
+      );
     }
 
-    return { type: "Program", imports, classes };
+    return { type: "Program", imports, enums, interfaces, classes };
   }
 
   function parseImportDeclaration() {
@@ -236,10 +259,11 @@ export function parse(tokens) {
     return { type: "ImportDeclaration", imported, source };
   }
 
-  function parseClassDeclaration() {
-    const classModifiers = parseModifiers();
+  function parseClassDeclaration(prefetchedModifiers = null) {
+    const classModifiers = prefetchedModifiers ?? parseModifiers();
     const isPublic = classModifiers.includes("public");
     const isExport = isPublic;
+    const isAbstract = classModifiers.includes("abstract");
     consume("keyword", "class", "Expected 'class'");
     const name = consume("identifier", undefined, "Expected class name").value;
     const typeParameters = parseTypeParametersDeclaration();
@@ -250,11 +274,29 @@ export function parse(tokens) {
       parseOptionalTypeArguments();
     }
 
+    const interfaces = [];
+    if (match("keyword", "implements")) {
+      do {
+        const interfaceName = consume(
+          "identifier",
+          undefined,
+          "Expected interface name after implements"
+        ).value;
+        parseOptionalTypeArguments();
+        interfaces.push(interfaceName);
+      } while (match("symbol", ","));
+    }
+
     consume("symbol", "{", "Expected '{' after class name");
 
     const members = [];
     while (!check("symbol", "}") && !isAtEnd()) {
-      members.push(parseClassMember(name));
+      const parsedMember = parseClassMember(name);
+      if (Array.isArray(parsedMember)) {
+        members.push(...parsedMember);
+      } else {
+        members.push(parsedMember);
+      }
     }
 
     consume("symbol", "}", "Expected '}' after class body");
@@ -263,10 +305,151 @@ export function parse(tokens) {
       name,
       typeParameters,
       superClass,
+      interfaces,
+      isAbstract,
       isExport,
       modifiers: classModifiers,
       members
     };
+  }
+
+  function parseInterfaceDeclaration(prefetchedModifiers = null) {
+    const interfaceModifiers = prefetchedModifiers ?? parseModifiers();
+    const isPublic = interfaceModifiers.includes("public");
+    const isExport = isPublic;
+
+    consume("keyword", "interface", "Expected 'interface'");
+    const name = consume("identifier", undefined, "Expected interface name").value;
+    const typeParameters = parseTypeParametersDeclaration();
+
+    const extendsInterfaces = [];
+    if (match("keyword", "extends")) {
+      do {
+        const interfaceName = consume(
+          "identifier",
+          undefined,
+          "Expected superinterface name"
+        ).value;
+        parseOptionalTypeArguments();
+        extendsInterfaces.push(interfaceName);
+      } while (match("symbol", ","));
+    }
+
+    consume("symbol", "{", "Expected '{' after interface name");
+
+    const members = [];
+    while (!check("symbol", "}") && !isAtEnd()) {
+      const parsedMember = parseInterfaceMember();
+      if (Array.isArray(parsedMember)) {
+        members.push(...parsedMember);
+      } else {
+        members.push(parsedMember);
+      }
+    }
+
+    consume("symbol", "}", "Expected '}' after interface body");
+
+    return {
+      type: "InterfaceDeclaration",
+      name,
+      typeParameters,
+      extendsInterfaces,
+      isExport,
+      modifiers: interfaceModifiers,
+      members
+    };
+  }
+
+  function parseEnumDeclaration(prefetchedModifiers = null) {
+    const enumModifiers = prefetchedModifiers ?? parseModifiers();
+    const isPublic = enumModifiers.includes("public");
+    const isExport = isPublic;
+
+    consume("keyword", "enum", "Expected 'enum'");
+    const name = consume("identifier", undefined, "Expected enum name").value;
+    consume("symbol", "{", "Expected '{' after enum name");
+
+    const constants = [];
+    while (!check("symbol", "}") && !check("symbol", ";")) {
+      const enumConstantName = consume(
+        "identifier",
+        undefined,
+        "Expected enum constant name"
+      ).value;
+      let argumentsList = [];
+      if (match("symbol", "(")) {
+        argumentsList = parseArgumentList(")", "Expected ')' after enum constant arguments");
+      }
+
+      if (check("symbol", "{")) {
+        const token = current();
+        throw new Error(
+          `Enum constant class bodies are not supported yet at ${token.line}:${token.column}`
+        );
+      }
+
+      constants.push({
+        type: "EnumConstant",
+        name: enumConstantName,
+        arguments: argumentsList
+      });
+
+      if (!match("symbol", ",")) {
+        break;
+      }
+
+      if (check("symbol", "}") || check("symbol", ";")) {
+        break;
+      }
+    }
+
+    if (constants.length === 0) {
+      const token = current();
+      throw new Error(`Enum '${name}' must declare at least one value at ${token.line}:${token.column}`);
+    }
+
+    const hasMemberSection = match("symbol", ";");
+    const members = [];
+
+    if (!check("symbol", "}") && !hasMemberSection) {
+      const token = current();
+      throw new Error(
+        `Expected ';' before enum members in '${name}' at ${token.line}:${token.column}`
+      );
+    }
+
+    if (hasMemberSection) {
+      while (!check("symbol", "}") && !isAtEnd()) {
+        const parsedMember = parseClassMember(name);
+        if (Array.isArray(parsedMember)) {
+          members.push(...parsedMember);
+        } else {
+          members.push(parsedMember);
+        }
+      }
+    }
+
+    consume("symbol", "}", "Expected '}' after enum declaration");
+
+    return {
+      type: "EnumDeclaration",
+      name,
+      constants,
+      members,
+      isExport,
+      modifiers: enumModifiers
+    };
+  }
+
+  function parseArgumentList(closingSymbol, closingMessage) {
+    const args = [];
+    if (!check("symbol", closingSymbol)) {
+      do {
+        args.push(parseExpression());
+      } while (match("symbol", ","));
+    }
+    consume("symbol", closingSymbol, closingMessage);
+    return args;
   }
 
   function parseClassMember(className) {
@@ -292,35 +475,107 @@ export function parse(tokens) {
     }
 
     const typeName = parseType();
-    const name = consume("identifier", undefined, "Expected member name").value;
+    const firstName = consume("identifier", undefined, "Expected member name").value;
 
     if (match("symbol", "(")) {
       const params = parseParameterList();
-      const body = parseBlockStatement();
+      const isAbstract = modifiers.includes("abstract");
+      const body = match("symbol", ";") ? null : parseBlockStatement();
       return {
         type: "MethodDeclaration",
-        name,
+        name: firstName,
         returnType: typeName,
         modifiers,
+        isAbstract,
         typeParameters: memberTypeParameters,
         params,
         body
       };
     }
 
+    const fields = [];
+
     let initializer = null;
     if (match("operator", "=")) {
       initializer = parseExpression();
     }
-    consume("symbol", ";", "Expected ';' after field declaration");
-
-    return {
+    fields.push({
       type: "FieldDeclaration",
       fieldType: typeName,
-      name,
+      name: firstName,
       modifiers,
       initializer
-    };
+    });
+
+    while (match("symbol", ",")) {
+      const fieldName = consume("identifier", undefined, "Expected member name").value;
+      let fieldInitializer = null;
+      if (match("operator", "=")) {
+        fieldInitializer = parseExpression();
+      }
+      fields.push({
+        type: "FieldDeclaration",
+        fieldType: typeName,
+        name: fieldName,
+        modifiers,
+        initializer: fieldInitializer
+      });
+    }
+
+    consume("symbol", ";", "Expected ';' after field declaration");
+
+    return fields.length === 1 ? fields[0] : fields;
+  }
+
+  function parseInterfaceMember() {
+    const modifiers = parseModifiers();
+    const memberTypeParameters = parseTypeParametersDeclaration();
+    const typeName = parseType();
+    const firstName = consume("identifier", undefined, "Expected member name").value;
+
+    if (match("symbol", "(")) {
+      const params = parseParameterList();
+      consume("symbol", ";", "Expected ';' after interface method declaration");
+      return {
+        type: "InterfaceMethodDeclaration",
+        name: firstName,
+        returnType: typeName,
+        modifiers,
+        typeParameters: memberTypeParameters,
+        params
+      };
+    }
+
+    const fields = [];
+    let initializer = null;
+    if (match("operator", "=")) {
+      initializer = parseExpression();
+    }
+    fields.push({
+      type: "FieldDeclaration",
+      fieldType: typeName,
+      name: firstName,
+      modifiers,
+      initializer
+    });
+
+    while (match("symbol", ",")) {
+      const fieldName = consume("identifier", undefined, "Expected member name").value;
+      let fieldInitializer = null;
+      if (match("operator", "=")) {
+        fieldInitializer = parseExpression();
+      }
+      fields.push({
+        type: "FieldDeclaration",
+        fieldType: typeName,
+        name: fieldName,
+        modifiers,
+        initializer: fieldInitializer
+      });
+    }
+
+    consume("symbol", ";", "Expected ';' after interface field declaration");
+    return fields.length === 1 ? fields[0] : fields;
   }
 
   function parseParameterList() {
@@ -363,8 +618,15 @@ export function parse(tokens) {
     if (match("keyword", "for")) {
       return parseForStatement();
     }
+    if (match("keyword", "switch")) {
+      return parseSwitchStatement();
+    }
     if (match("keyword", "try")) {
       return parseTryStatement();
+    }
+    if (match("keyword", "break")) {
+      consume("symbol", ";", "Expected ';' after break");
+      return { type: "BreakStatement" };
     }
     if (match("keyword", "throw")) {
       const argument = parseExpression();
@@ -498,6 +760,44 @@ export function parse(tokens) {
     }
 
     return { type: "TryStatement", block, handler, finalizer };
+  }
+
+  function parseSwitchStatement() {
+    consume("symbol", "(", "Expected '(' after switch");
+    const discriminant = parseExpression();
+    consume("symbol", ")", "Expected ')' after switch expression");
+    consume("symbol", "{", "Expected '{' after switch expression");
+
+    const cases = [];
+    while (!check("symbol", "}") && !isAtEnd()) {
+      let test = null;
+      if (match("keyword", "case")) {
+        test = parseExpression();
+        consume("symbol", ":", "Expected ':' after case label");
+      } else if (match("keyword", "default")) {
+        consume("symbol", ":", "Expected ':' after default label");
+      } else {
+        const token = current();
+        throw new Error(
+          `Expected 'case' or 'default' in switch at ${token.line}:${token.column}`
+        );
+      }
+
+      const consequent = [];
+      while (
+        !check("keyword", "case") &&
+        !check("keyword", "default") &&
+        !check("symbol", "}") &&
+        !isAtEnd()
+      ) {
+        consequent.push(parseStatement());
+      }
+
+      cases.push({ type: "SwitchCase", test, consequent });
+    }
+
+    consume("symbol", "}", "Expected '}' after switch statement");
+    return { type: "SwitchStatement", discriminant, cases };
   }
 
   function parseExpression() {
@@ -677,6 +977,12 @@ export function parse(tokens) {
       return { type: "SuperExpression" };
     }
 
+    if (check("keyword") && TYPE_KEYWORDS.has(current().value) && checkNext("symbol", "(")) {
+      const name = current().value;
+      pos += 1;
+      return { type: "Identifier", name };
+    }
+
     if (match("keyword", "new")) {
       const callee = parseBaseTypeName("Expected type after new");
       parseOptionalTypeArguments();
@@ -693,13 +999,7 @@ export function parse(tokens) {
       }
 
       consume("symbol", "(", "Expected '(' after class name");
-      const args = [];
-      if (!check("symbol", ")")) {
-        do {
-          args.push(parseExpression());
-        } while (match("symbol", ","));
-      }
-      consume("symbol", ")", "Expected ')' after constructor args");
+      const args = parseArgumentList(")", "Expected ')' after constructor args");
       return { type: "NewExpression", callee, arguments: args };
     }
 

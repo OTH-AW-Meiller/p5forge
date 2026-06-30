@@ -128,14 +128,15 @@ function findMatchingBrace(source, openBraceIndex) {
   return -1;
 }
 
-function extractTopLevelClassDeclarations(source) {
+function extractTopLevelDeclarations(source) {
   const ranges = [];
-  const classStartRegex = /(^|\n)\s*class\s+[A-Za-z_]\w*(?:\s+extends\s+[A-Za-z_]\w+)?\s*\{/g;
+  const declarationStartRegex =
+    /(^|\n)\s*(?:(?:public|private|protected|static|abstract)\s+)*(?:class\s+[A-Za-z_]\w*(?:\s+extends\s+[A-Za-z_]\w+)?(?:\s+implements\s+[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)?|interface\s+[A-Za-z_]\w*(?:\s+extends\s+[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)?|enum\s+[A-Za-z_]\w*)\s*\{/g;
   let match;
 
-  while ((match = classStartRegex.exec(source)) !== null) {
+  while ((match = declarationStartRegex.exec(source)) !== null) {
     const start = match.index + (match[1] ? 1 : 0);
-    const openBrace = source.indexOf("{", classStartRegex.lastIndex - 1);
+    const openBrace = source.indexOf("{", declarationStartRegex.lastIndex - 1);
     if (openBrace < 0) {
       continue;
     }
@@ -151,23 +152,23 @@ function extractTopLevelClassDeclarations(source) {
     }
 
     ranges.push({ start, end });
-    classStartRegex.lastIndex = end;
+    declarationStartRegex.lastIndex = closeBrace + 1;
   }
 
   if (ranges.length === 0) {
-    return { classBlocks: [], remainingBody: source.trim() };
+    return { declarationBlocks: [], remainingBody: source.trim() };
   }
 
   ranges.sort((a, b) => a.start - b.start);
 
-  const classBlocks = [];
+  const declarationBlocks = [];
   const remainderParts = [];
   let cursor = 0;
   for (const range of ranges) {
     if (range.start > cursor) {
       remainderParts.push(source.slice(cursor, range.start));
     }
-    classBlocks.push(source.slice(range.start, range.end).trim());
+    declarationBlocks.push(source.slice(range.start, range.end).trim());
     cursor = range.end;
   }
   if (cursor < source.length) {
@@ -175,7 +176,7 @@ function extractTopLevelClassDeclarations(source) {
   }
 
   const remainingBody = remainderParts.join("\n").trim();
-  return { classBlocks, remainingBody };
+  return { declarationBlocks, remainingBody };
 }
 
 function wrapPdeSource(source) {
@@ -205,13 +206,13 @@ function wrapPdeSource(source) {
   }
 
   const bodySource = lines.slice(bodyStart).join("\n").trim();
-  const { classBlocks, remainingBody } = extractTopLevelClassDeclarations(bodySource);
+  const { declarationBlocks, remainingBody } = extractTopLevelDeclarations(bodySource);
   const importsPrefix = importLines.length > 0 ? `${importLines.join("\n")}\n\n` : "";
 
   if (!remainingBody) {
-    if (classBlocks.length > 0) {
+    if (declarationBlocks.length > 0) {
       return {
-        source: `${importsPrefix}${classBlocks.join("\n\n")}\n`,
+        source: `${importsPrefix}${declarationBlocks.join("\n\n")}\n`,
         syntheticClassName: null
       };
     }
@@ -238,7 +239,7 @@ function wrapPdeSource(source) {
   }
 
   const syntheticWrapper = `class ${PDE_CLASS_NAME} {\n${indentBlock(classBody, 2)}\n}`;
-  const blocks = [...classBlocks, syntheticWrapper];
+  const blocks = [...declarationBlocks, syntheticWrapper];
   return {
     source: `${importsPrefix}${blocks.join("\n\n")}\n`,
     syntheticClassName: PDE_CLASS_NAME

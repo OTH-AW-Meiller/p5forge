@@ -32,12 +32,31 @@ Key capabilities:
 - For `pde`, parser-compatible normalization is applied when needed:
   - Top-level sketch code is normalized so parsing remains class-based internally.
   - `setup()` is added if missing.
-  - Additional user-defined classes in `.pde` files are preserved.
+  - Additional user-defined classes, abstract classes, interfaces, and enums in `.pde` files are preserved.
 - The internal synthetic wrapper (used only for parsing) is flattened again during JS generation:
   - Output uses global `setup()/draw()/...` functions like idiomatic Processing/p5 global mode.
   - No runtime sketch-instance wrapper is required.
 - Scope-aware field binding in instance methods/constructors:
   - Bare field identifiers are resolved to `this.<field>`.
+  - Bare instance method calls are resolved to `this.<method>()` when needed.
+  - Inherited instance fields and methods are also resolved correctly across class hierarchies.
+- Java-style enums are supported:
+  - Top-level enum declarations compile in both `java` and `pde` mode.
+  - Enum constants may have constructor arguments.
+  - Enum fields, methods, constructors, `values()`, and `valueOf(name)` are supported.
+- Java-style interfaces are supported:
+  - Top-level interface declarations compile in both `java` and `pde` mode.
+  - Classes may use `implements` and interfaces may use `extends`.
+  - Interface method signatures are validated against implementing classes, including inherited implementations.
+  - Interfaces are compile-time only and do not emit runtime JavaScript.
+- Java-style abstract classes are supported:
+  - Top-level `abstract class` declarations compile in both `java` and `pde` mode.
+  - Abstract methods may be declared without a body.
+  - Abstract classes may carry interface contracts that concrete subclasses fulfill later.
+  - Concrete subclasses must implement inherited abstract methods.
+  - Abstract methods are compile-time only and do not emit runtime JavaScript.
+- Control-flow coverage includes `if`, `while`, `for`, enhanced `for`, `try/catch/finally`, `switch/case/default`, and `break`.
+- Java-style field declarations with multiple names are supported (for example `float x, y;`).
 - Expression grouping is preserved correctly (parenthesized output where needed).
 
 ### 2) p5 Post-Transpiler
@@ -141,6 +160,10 @@ function draw() {
 
 ## Current Limitations
 
-- Not a full Java frontend (for example, interfaces and advanced language features are only partially supported).
+- Not a full Java frontend; advanced Java language features are still only partially supported.
+- Enum constant-specific class bodies are not supported yet (for example `A { ... }` inside an enum).
+- Interface default methods and other runtime-bearing interface features are not supported yet.
+- Abstract methods outside abstract classes are rejected.
+- Full Java override compatibility checks are still pragmatic rather than exhaustive.
 - Semantic validation is intentionally pragmatic and optimized for sketch use cases.
 - Focus is Processing/p5 workflows, not full general-purpose Java compatibility.
