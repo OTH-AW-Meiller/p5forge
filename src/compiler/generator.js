@@ -740,6 +740,12 @@ function generateExpression(expr, context = null) {
     }
     case "NewArrayExpression":
       return generateNewArrayExpression(expr.dimensions, 0, context);
+    case "ArrayInitializerExpression": {
+      const elements = expr.elements
+        .map((element) => generateExpression(element, context))
+        .join(", ");
+      return `[${elements}]`;
+    }
     default:
       throw new Error(`Unsupported expression type: ${expr.type}`);
   }

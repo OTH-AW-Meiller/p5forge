@@ -452,6 +452,20 @@ export function parse(tokens) {
     return args;
   }
 
+  function parseArrayInitializerExpression() {
+    consume("symbol", "{", "Expected '{' to start array initializer");
+    const elements = [];
+
+    if (!check("symbol", "}")) {
+      do {
+        elements.push(parseExpression());
+      } while (match("symbol", ","));
+    }
+
+    consume("symbol", "}", "Expected '}' after array initializer");
+    return { type: "ArrayInitializerExpression", elements };
+  }
+
   function parseClassMember(className) {
     const modifiers = parseModifiers();
     const memberTypeParameters = parseTypeParametersDeclaration();
@@ -965,6 +979,10 @@ export function parse(tokens) {
   }
 
   function parsePrimary() {
+    if (check("symbol", "{")) {
+      return parseArrayInitializerExpression();
+    }
+
     if (match("number")) {
       return { type: "Literal", value: Number(previous().value), raw: previous().value };
     }

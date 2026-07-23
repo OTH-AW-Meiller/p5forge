@@ -149,6 +149,11 @@ export function validateSemantics(ast) {
           validateExpression(dim, classScope, localTypeParams);
         }
         return;
+      case "ArrayInitializerExpression":
+        for (const element of expr.elements) {
+          validateExpression(element, classScope, localTypeParams);
+        }
+        return;
       default:
         return;
     }
