@@ -1,4 +1,4 @@
-const TYPE_KEYWORDS = new Set(["int", "float", "double", "boolean", "String", "void"]);
+const TYPE_KEYWORDS = new Set(["int", "float", "double", "boolean", "String", "void", "color"]);
 const MODIFIERS = new Set(["public", "private", "protected", "static", "abstract"]);
 
 export function parse(tokens) {

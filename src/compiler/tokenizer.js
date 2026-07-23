@@ -19,6 +19,7 @@ export const KEYWORDS = new Set([
   "double",
   "boolean",
   "String",
+  "color",
   "new",
   "return",
   "if",
