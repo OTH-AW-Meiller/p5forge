@@ -892,6 +892,16 @@ export function parse(tokens) {
   }
 
   function parseUnary() {
+    if (check("symbol", "(") && findTypeEnd(pos + 1) >= 0) {
+      const typeEnd = findTypeEnd(pos + 1);
+      if (tokens[typeEnd] && tokens[typeEnd].type === "symbol" && tokens[typeEnd].value === ")") {
+        pos += 1; // consume '('
+        parseType();
+        consume("symbol", ")", "Expected ')' after cast type");
+        return parseUnary();
+      }
+    }
+
     if (
       match("operator", "!") ||
       match("operator", "-") ||
