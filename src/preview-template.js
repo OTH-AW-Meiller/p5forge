@@ -145,6 +145,23 @@ export function createPreviewHtml(jsCode, assetBaseHref = "./") {
       }
 
       function runSketch() {
+        function enforceProcessingKeyConstants() {
+          // p5 may expose LEFT/RIGHT as strings (mouse/alignment constants).
+          // Processing sketches compare keyCode against numeric constants.
+          var keyConstants = {
+            UP: 38,
+            DOWN: 40,
+            LEFT: 37,
+            RIGHT: 39
+          };
+
+          Object.keys(keyConstants).forEach(function (name) {
+            if (typeof window[name] !== "number") {
+              window[name] = keyConstants[name];
+            }
+          });
+        }
+
         function patchImageGuard() {
           if (!window.p5 || !window.p5.prototype || window.__p5forgePatchedImageGuard) {
             return;
@@ -241,12 +258,25 @@ export function createPreviewHtml(jsCode, assetBaseHref = "./") {
           window.__p5forgePatchedCreateCanvas = true;
         }
 
-        patchImageGuard();
+          patchImageGuard();
+          enforceProcessingKeyConstants();
 
         var sketchCode = ${serializedCode};
         var sketchScript = document.createElement("script");
         sketchScript.textContent = sketchCode;
         document.body.appendChild(sketchScript);
+
+        // p5 may reset LEFT/RIGHT during global-mode boot; enforce repeatedly
+        // for a short window right after script injection.
+        setTimeout(enforceProcessingKeyConstants, 0);
+        var p5forgeKeyFixTries = 0;
+        var p5forgeKeyFixTimer = setInterval(function () {
+          enforceProcessingKeyConstants();
+          p5forgeKeyFixTries += 1;
+          if (p5forgeKeyFixTries >= 180) {
+            clearInterval(p5forgeKeyFixTimer);
+          }
+        }, 16);
 
         // In this srcdoc boot flow, p5 global mode may start before user code
         // defines preload(). If so, preload is never called and async asset

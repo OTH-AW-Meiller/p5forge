@@ -1,5 +1,39 @@
 // Runtime compatibility helpers for Processing-style list operations in JS.
 
+// Processing key/code constants used by many sketches (e.g. Coding Train).
+// Define only when absent so we do not override p5-provided globals.
+const P5FORGE_KEY_CONSTANTS = {
+  UP: 38,
+  DOWN: 40,
+  LEFT: 37,
+  RIGHT: 39,
+  SHIFT: 16,
+  CONTROL: 17,
+  ALT: 18,
+  ENTER: 10,
+  RETURN: 13,
+  BACKSPACE: 8,
+  TAB: 9,
+  ESC: 27,
+  DELETE: 127,
+  CODED: 0xffff
+};
+
+for (const [name, value] of Object.entries(P5FORGE_KEY_CONSTANTS)) {
+  // p5 may expose LEFT/RIGHT as alignment/button strings; Processing sketches
+  // compare keyCode against numeric LEFT/RIGHT constants.
+  if (name === "LEFT" || name === "RIGHT") {
+    if (typeof globalThis[name] !== "number") {
+      globalThis[name] = value;
+    }
+    continue;
+  }
+
+  if (globalThis[name] === undefined) {
+    globalThis[name] = value;
+  }
+}
+
 if (!Array.prototype.add) {
   Array.prototype.add = function add(value) {
     this.push(value);
@@ -32,6 +66,27 @@ if (!Array.prototype.removeAt) {
 if (!Array.prototype.removeValue) {
   Array.prototype.removeValue = function removeValue(value) {
     const idx = this.indexOf(value);
+    if (idx === -1) {
+      return false;
+    }
+    this.splice(idx, 1);
+    return true;
+  };
+}
+
+if (!Array.prototype.remove) {
+  // Java-style overload:
+  // - remove(int index) -> removes and returns element or null if out of range
+  // - remove(Object value) -> removes first matching value and returns boolean
+  Array.prototype.remove = function remove(target) {
+    if (Number.isInteger(target)) {
+      if (target < 0 || target >= this.length) {
+        return null;
+      }
+      return this.splice(target, 1)[0];
+    }
+
+    const idx = this.indexOf(target);
     if (idx === -1) {
       return false;
     }
@@ -76,6 +131,25 @@ if (!globalThis.ArrayList) {
       if (args.length > 0) {
         this.push(...args);
       }
+    }
+
+    remove(target) {
+      // Java-style overload:
+      // - remove(int index) -> removes and returns element or null if out of range
+      // - remove(Object value) -> removes first matching value and returns boolean
+      if (Number.isInteger(target)) {
+        if (target < 0 || target >= this.length) {
+          return null;
+        }
+        return this.splice(target, 1)[0];
+      }
+
+      const index = this.indexOf(target);
+      if (index === -1) {
+        return false;
+      }
+      this.splice(index, 1);
+      return true;
     }
   };
 }

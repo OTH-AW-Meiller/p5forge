@@ -499,6 +499,7 @@ body.preview-running .preview-panel {
   body.preview-running .preview-panel #previewFrame {
     display: block;
     width: min(var(--canvas-w, 480px), 92vw);
+    max-height: none;
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -1002,6 +1003,19 @@ body.preview-running .preview-panel {
   .editor-body {
     height: 52vh;
   }
+
+  body.preview-running .editor-body {
+    height: 42vh;
+  }
+
+  body.preview-running .console {
+    height: 110px;
+    max-height: 18vh;
+  }
+
+  body.preview-running .preview-panel iframe {
+    max-height: 64vh;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1076,6 +1090,10 @@ body.preview-running .preview-panel {
     height: 46vh;
   }
 
+  body.preview-running .editor-body {
+    height: 34vh;
+  }
+
   #lineNumbers {
     padding-right: 6px;
     font-size: 0.78rem;
@@ -1100,6 +1118,11 @@ body.preview-running .preview-panel {
 
   .preview-panel iframe {
     height: 360px;
-    max-height: 58vh;
+    max-height: 70vh;
+  }
+
+  body.preview-running .console {
+    height: 96px;
+    max-height: 16vh;
   }
 }

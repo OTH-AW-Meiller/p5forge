@@ -376,8 +376,17 @@ function stopPreview() {
 const PREVIEW_MIN_HEIGHT = 320;
 const PREVIEW_MAX_VIEWPORT_RATIO = 0.72;
 const PREVIEW_FRAME_PADDING = 6;
+const PREVIEW_BOTTOM_MARGIN = 20;
 
 function getMaxPreviewHeight() {
+  if (window.matchMedia("(min-width: 901px)").matches && previewWindow) {
+    const rect = previewWindow.getBoundingClientRect();
+    const top = Number.isFinite(rect.top) ? rect.top : 96;
+    const titlebarHeight = previewTitlebar ? Math.ceil(previewTitlebar.getBoundingClientRect().height || 0) : 0;
+    const available = Math.floor(window.innerHeight - top - PREVIEW_BOTTOM_MARGIN - titlebarHeight);
+    return Math.max(PREVIEW_MIN_HEIGHT, available);
+  }
+
   return Math.max(PREVIEW_MIN_HEIGHT, Math.floor(window.innerHeight * PREVIEW_MAX_VIEWPORT_RATIO));
 }
 
@@ -904,12 +913,34 @@ function rewriteRelativeLoaderPaths(jsCode, assetBaseHref) {
 }
 
 function updatePreview(jsCode) {
+  const focusPreview = () => {
+    try {
+      previewFrame.focus();
+    } catch {
+      // Ignore focus errors.
+    }
+
+    try {
+      const win = previewFrame.contentWindow;
+      if (win && typeof win.focus === "function") {
+        win.focus();
+      }
+    } catch {
+      // Ignore cross-context timing errors.
+    }
+  };
+
   const previewCode = jsCode.replace(/^\s*import\s+["'][^"']+["'];?\s*$/gm, "");
   const assetBaseHref = new URL("./", window.location.href).toString();
   const runtimeCode = rewriteRelativeLoaderPaths(previewCode, assetBaseHref);
   setPreviewHeightFromCanvas(PREVIEW_MIN_HEIGHT);
   const doc = createPreviewHtml(runtimeCode, assetBaseHref);
+  previewFrame.onload = () => {
+    // Ensure keyboard input goes to the running sketch right after Play.
+    focusPreview();
+  };
   previewFrame.srcdoc = doc;
+  requestAnimationFrame(focusPreview);
 }
 
 btnNewSketch.addEventListener("click", newSketch);
