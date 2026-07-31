@@ -115,6 +115,17 @@ p5.js loading strategy (preview and exported p5.js project use p5.js 2.x):
 
 1. CDN (`p5@2.3.0`)
 
+### pdez support
+
+You can import Processing multi-file archives in two ways:
+
+1. Via menu: `Load .pde / .pdez (.zip)`
+1. Via URL parameter: `?pdez=<archive-url>`
+
+Direct example:
+
+https://oth-aw-meiller.github.io/p5forge/?pdez=https://github.com/CodingTrain/Coding-Challenges/blob/main/001_StarField/Processing/sketch.pdez
+
 ### Image loading note
 
 For browser preview, image loading requires HTTP (not direct `file://` loading). Relative paths in sketches (for example `./data/hacker.png`) are resolved against the app URL and supported in global `.pde` sketches, including top-level `PImage` initializers.
