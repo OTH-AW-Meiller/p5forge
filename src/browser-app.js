@@ -1,14 +1,10 @@
 import { compileSource } from "./compiler/compiler.js";
 import { transpileProcessingApiToP5 } from "./p5-post-transpiler.js";
 import { createPreviewHtml } from "./preview-template.js";
-import { bindEditorKeyHandlers, bindGlobalHotkeys } from "./keyboard-handlers.js";
-import { createEditorAutocomplete } from "./editor-autocomplete.js";
-import { highlightToHtml } from "./editor-highlight.js";
+import { bindGlobalHotkeys } from "./keyboard-handlers.js";
 import { createZipBlob } from "./zip.js";
 
 const inputCode = document.getElementById("inputCode");
-const lineNumbers = document.getElementById("lineNumbers");
-const highlightLayer = document.getElementById("highlightLayer");
 const tabStrip = document.getElementById("tabStrip");
 const btnAddTab = document.getElementById("btnAddTab");
 const fileInputPde = document.getElementById("fileInputPde");
@@ -32,7 +28,7 @@ const previewWindow = document.getElementById("previewWindow");
 const previewTitlebar = document.getElementById("previewTitlebar");
 const previewTitle = document.getElementById("previewTitle");
 const btnPreviewClose = document.getElementById("btnPreviewClose");
-const editorAutocomplete = createEditorAutocomplete({ inputCode });
+const aceApi = window.ace;
 const MAX_CONSOLE_LINES = 200;
 const SAMPLE_FILE_PATH = "./sample.pde";
 const STORAGE_KEY = "p5forge:tabs:v1";
@@ -60,6 +56,89 @@ const STOP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="fa
 let tabs = [];
 let activeTabId = null;
 let tabSeq = 0;
+let editor = null;
+let editorSession = null;
+
+const PROCESSING_KEYWORDS = [
+  "setup", "draw", "mousePressed", "mouseMoved", "mouseDragged", "keyPressed", "keyReleased",
+  "size", "background", "fill", "stroke", "noStroke", "noFill", "rect", "ellipse", "circle",
+  "line", "triangle", "quad", "beginShape", "endShape", "vertex", "bezier", "curve",
+  "text", "textSize", "textAlign", "image", "loadImage", "loadShape", "createShape", "shape",
+  "shapeMode", "translate", "rotate", "scale", "push", "pop", "random", "noise", "map",
+  "constrain", "dist", "colorMode", "frameRate", "println", "print"
+];
+
+function createAceEditor() {
+  if (!aceApi) {
+    throw new Error("ACE editor could not be loaded.");
+  }
+
+  editor = aceApi.edit("inputCode");
+  editorSession = editor.session;
+  editor.container.classList.add("ace-p5forge-theme");
+
+  editor.setTheme("ace/theme/merbivore_soft");
+  editorSession.setMode("ace/mode/java");
+  editorSession.setUseSoftTabs(true);
+  editorSession.setTabSize(2);
+  editorSession.setUseWrapMode(true);
+
+  editor.setOptions({
+    fontSize: "14px",
+    showPrintMargin: false,
+    enableBasicAutocompletion: true,
+    enableLiveAutocompletion: true,
+    useWorker: false,
+    copyWithEmptySelection: true
+  });
+
+  const langTools = aceApi.require("ace/ext/language_tools");
+  if (langTools) {
+    const completer = {
+      getCompletions(_editor, _session, _pos, prefix, callback) {
+        if (!prefix || prefix.length === 0) {
+          callback(null, []);
+          return;
+        }
+        const lower = prefix.toLowerCase();
+        const hits = PROCESSING_KEYWORDS
+          .filter((word) => word.toLowerCase().startsWith(lower))
+          .map((word) => ({
+            caption: word,
+            value: word,
+            meta: "processing",
+            score: 1000
+          }));
+        callback(null, hits);
+      }
+    };
+    langTools.addCompleter(completer);
+  }
+
+  editor.commands.addCommand({
+    name: "runSketch",
+    bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" },
+    exec: () => runTranspile()
+  });
+
+  editor.on("change", () => {
+    stopPreviewOnEdit();
+    schedulePersist();
+  });
+}
+
+function getEditorValue() {
+  return editorSession ? editorSession.getValue() : "";
+}
+
+function setEditorValue(value) {
+  if (!editorSession || !editor) {
+    return;
+  }
+  editorSession.setValue(value ?? "");
+  editor.clearSelection();
+  editor.navigateFileStart();
+}
 
 function makeTab(name, code) {
   tabSeq += 1;
@@ -88,16 +167,16 @@ function defaultTabName() {
 function commitEditorToActiveTab() {
   const tab = getActiveTab();
   if (tab) {
-    tab.code = inputCode.value;
+    tab.code = getEditorValue();
   }
 }
 
 function loadActiveTabIntoEditor() {
   const tab = getActiveTab();
-  inputCode.value = tab ? tab.code : "";
-  updateLineNumbers();
-  updateHighlight();
-  syncLineNumberScroll();
+  setEditorValue(tab ? tab.code : "");
+  if (editor) {
+    editor.resize();
+  }
 }
 
 function setActiveTab(id) {
@@ -347,45 +426,6 @@ function setPreviewRunningState(isRunning) {
   document.body.classList.toggle("preview-running", isRunning);
   if (isRunning && previewTitle) {
     previewTitle.textContent = normalizePdeFileName(mainSketchName()).replace(/\.pde$/i, "");
-  }
-}
-
-function updateLineNumbers() {
-  const lineCount = Math.max(1, inputCode.value.split("\n").length);
-  let numbers = "";
-  for (let i = 1; i <= lineCount; i++) {
-    // No trailing newline after the last number: a trailing "\n" renders an
-    // extra blank line in the gutter, making it taller than the code and
-    // causing the line numbers to drift when scrolling.
-    numbers += i === lineCount ? `${i}` : `${i}\n`;
-  }
-  lineNumbers.textContent = numbers;
-}
-
-function syncLineNumberScroll() {
-  lineNumbers.scrollTop = inputCode.scrollTop;
-  if (highlightLayer) {
-    highlightLayer.scrollTop = inputCode.scrollTop;
-    highlightLayer.scrollLeft = inputCode.scrollLeft;
-  }
-}
-
-function updateHighlight() {
-  if (highlightLayer) {
-    // Keep the highlight layer at least as tall as the textarea. A textarea
-    // whose value ends in "\n" shows a visible empty final line, but a <pre>
-    // gives a lone trailing newline no line box of its own — so the layer is
-    // one line shorter, and when scrolled to the bottom its clamped scrollTop
-    // leaves the colored text a line above the caret (typed characters appear
-    // a line lower). Appending "\n " forces that final line to have real
-    // height; the extra space is invisible and only adds harmless scroll room.
-    highlightLayer.innerHTML = highlightToHtml(inputCode.value) + "\n ";
-    // Sync now, then again after the browser auto-scrolls the textarea to
-    // reveal the caret. That caret-reveal scroll happens after this handler
-    // and does not reliably fire a "scroll" event, so without the rAF pass the
-    // layer keeps the pre-edit scroll position and drifts a line behind.
-    syncLineNumberScroll();
-    requestAnimationFrame(syncLineNumberScroll);
   }
 }
 
@@ -719,10 +759,45 @@ function normalizeJsFileName(rawName) {
   return `${base}.js`;
 }
 
+function isRelativeAssetPath(path) {
+  const value = String(path || "").trim();
+  if (!value) {
+    return false;
+  }
+  if (/^[a-zA-Z][a-zA-Z\d+.-]*:/.test(value)) {
+    return false;
+  }
+  if (value.startsWith("//") || value.startsWith("/") || value.startsWith("#")) {
+    return false;
+  }
+  return true;
+}
+
+function rewriteRelativeLoaderPaths(jsCode, assetBaseHref) {
+  const loaderPattern = /\b(loadImage|loadFont|loadJSON|loadStrings|loadTable|loadXML|loadBytes|loadModel|loadShader|loadShape)\s*\(\s*(["'])([^"']+)\2/g;
+
+  return jsCode.replace(loaderPattern, (match, fnName, quote, pathValue) => {
+    if (!isRelativeAssetPath(pathValue)) {
+      return match;
+    }
+
+    let resolvedPath = pathValue;
+    try {
+      resolvedPath = new URL(pathValue, assetBaseHref).toString();
+    } catch {
+      return match;
+    }
+
+    return `${fnName}(${quote}${resolvedPath}${quote}`;
+  });
+}
+
 function updatePreview(jsCode) {
   const previewCode = jsCode.replace(/^\s*import\s+["'][^"']+["'];?\s*$/gm, "");
+  const assetBaseHref = new URL("./", window.location.href).toString();
+  const runtimeCode = rewriteRelativeLoaderPaths(previewCode, assetBaseHref);
   setPreviewHeightFromCanvas(PREVIEW_MIN_HEIGHT);
-  const doc = createPreviewHtml(previewCode);
+  const doc = createPreviewHtml(runtimeCode, assetBaseHref);
   previewFrame.srcdoc = doc;
 }
 
@@ -854,34 +929,18 @@ window.addEventListener("message", (event) => {
 });
 
 window.addEventListener("resize", () => {
+  if (editor) {
+    editor.resize();
+  }
   const currentHeight = parseInt(previewFrame.style.height || `${PREVIEW_MIN_HEIGHT}`, 10);
   setPreviewHeightFromCanvas(currentHeight - PREVIEW_FRAME_PADDING);
 });
-
-bindEditorKeyHandlers({
-  inputCode,
-  onRun: runTranspile,
-  autocomplete: editorAutocomplete,
-  onAfterEdit: () => {
-    stopPreviewOnEdit();
-    updateLineNumbers();
-    updateHighlight();
-    syncLineNumberScroll();
-    schedulePersist();
-  }
-});
-
-inputCode.addEventListener("input", stopPreviewOnEdit);
-inputCode.addEventListener("input", updateLineNumbers);
-inputCode.addEventListener("input", updateHighlight);
-inputCode.addEventListener("input", editorAutocomplete.handleInput);
-inputCode.addEventListener("input", schedulePersist);
-inputCode.addEventListener("scroll", syncLineNumberScroll);
 
 // Flush the latest state before the page unloads so nothing is lost.
 window.addEventListener("beforeunload", persistTabs);
 
 async function initializeApp() {
+  createAceEditor();
   const persisted = loadPersistedTabs();
 
   if (persisted) {

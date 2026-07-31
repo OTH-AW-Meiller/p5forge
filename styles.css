@@ -670,100 +670,111 @@ body.preview-running .preview-panel {
 }
 
 .editor-body {
-  display: grid;
-  grid-template-columns: 52px 1fr;
+  display: block;
   height: 60vh;
   background: var(--editor-bg);
-  align-items: stretch;
   position: relative;
 }
 
-#lineNumbers {
-  margin: 0;
-  padding: 12px 8px 12px 0;
-  text-align: right;
-  color: #4d8d77;
-  background: var(--editor-gutter);
-  border-right: 1px solid rgba(20, 240, 143, 0.24);
+.ace-editor-host {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.ace_editor {
   font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
-  font-size: 0.9rem;
+  font-size: 14px;
   line-height: 1.5;
-  white-space: pre;
-  overflow: hidden;
-  user-select: none;
 }
 
-.code-area {
-  --code-font-size: 0.9rem;
-  --code-line-height: 1.5;
-  --code-line-step: calc(var(--code-font-size) * var(--code-line-height));
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+.ace_editor .ace_gutter {
+  background: var(--editor-gutter);
+  color: #4d8d77;
 }
 
-/* The highlight layer and the textarea must share identical box metrics so the
-   colored text sits exactly behind the (transparent) editable text. */
-#highlightLayer,
-#inputCode {
-  box-sizing: border-box;
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  padding: 12px;
-  border: 0;
-  font-family: "JetBrains Mono", "IBM Plex Mono", Menlo, monospace;
-  font-size: var(--code-font-size);
-  line-height: var(--code-line-height);
-  letter-spacing: normal;
-  tab-size: 4;
-  /* No wrapping: a textarea and the <pre> highlight layer do not always wrap
-     long lines at the same column (notably an iOS Safari box-metric quirk),
-     which shifts everything after the wrap point by a row and desyncs the
-     visible (colored) text from the caret. Scrolling horizontally instead
-     keeps caret, highlight, and line numbers deterministically aligned. */
-  white-space: pre;
-  overflow-wrap: normal;
+.ace_editor .ace_marker-layer .ace_active-line,
+.ace_editor .ace_gutter-active-line {
+  background: rgba(20, 240, 143, 0.08);
 }
 
-#highlightLayer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  color: var(--editor-ink);
-  background-color: transparent;
+/* p5forge ACE look profile */
+.ace-p5forge-theme {
+  background: linear-gradient(180deg, #061118 0%, #07131a 100%);
+  color: #b7ffd9;
+}
+
+.ace-p5forge-theme .ace_scroller {
   background-image: repeating-linear-gradient(
     to bottom,
-    rgba(20, 240, 143, 0.028) 0,
-    rgba(20, 240, 143, 0.028) var(--code-line-step),
-    rgba(0, 217, 255, 0.045) var(--code-line-step),
-    rgba(0, 217, 255, 0.045) calc(var(--code-line-step) * 2)
+    rgba(20, 240, 143, 0.03) 0,
+    rgba(20, 240, 143, 0.03) 21px,
+    rgba(0, 217, 255, 0.045) 21px,
+    rgba(0, 217, 255, 0.045) 42px
   );
-  background-origin: content-box;
-  background-clip: content-box;
 }
 
-#inputCode {
-  position: relative;
-  z-index: 1;
-  resize: none;
-  border-radius: 0;
-  background: transparent;
-  color: transparent;
-  caret-color: #d7ffe8;
-  overflow: auto;
-  scrollbar-width: thin;
+.ace-p5forge-theme .ace_scrollbar-h {
+  display: none !important;
 }
 
-#inputCode::selection {
-  background: rgba(0, 217, 255, 0.3);
+.ace-p5forge-theme .ace_gutter {
+  background: #0a1a22;
+  color: #4f8e78;
+  border-right: 1px solid rgba(20, 240, 143, 0.24);
 }
 
-#inputCode:focus {
-  outline: none;
+.ace-p5forge-theme .ace_gutter-cell {
+  padding-left: 8px;
+  padding-right: 10px;
+}
+
+.ace-p5forge-theme .ace_cursor {
+  color: #d7ffe8;
+}
+
+.ace-p5forge-theme .ace_marker-layer .ace_selection {
+  background: rgba(0, 217, 255, 0.24);
+}
+
+.ace-p5forge-theme .ace_marker-layer .ace_bracket {
+  border: 1px solid rgba(0, 252, 168, 0.5);
+  background: rgba(0, 252, 168, 0.08);
+}
+
+.ace-p5forge-theme .ace_marker-layer .ace_active-line,
+.ace-p5forge-theme .ace_gutter-active-line {
+  background: rgba(20, 240, 143, 0.12);
+}
+
+.ace-p5forge-theme .ace_marker-layer .ace_selected-word {
+  border: 1px solid rgba(0, 217, 255, 0.35);
+}
+
+.ace-p5forge-theme .ace_keyword,
+.ace-p5forge-theme .ace_storage,
+.ace-p5forge-theme .ace_support.ace_function {
+  color: #00d9ff;
+}
+
+.ace-p5forge-theme .ace_constant.ace_numeric,
+.ace-p5forge-theme .ace_constant.ace_language {
+  color: #ff9e64;
+}
+
+.ace-p5forge-theme .ace_string {
+  color: #ffd479;
+}
+
+.ace-p5forge-theme .ace_comment {
+  color: #5d7a72;
+  font-style: italic;
+}
+
+.ace-p5forge-theme .ace_entity.ace_name.ace_function,
+.ace-p5forge-theme .ace_support.ace_type,
+.ace-p5forge-theme .ace_meta.ace_tag {
+  color: #00fca8;
 }
 
 .tok-keyword {

@@ -277,11 +277,21 @@ function findMainClass(ast, excludedClassName = null) {
 function generateFlattenedPdeClass(cls) {
   const lines = [];
   const globalContext = createGeneratorContext(new Set(), new Set(), false);
+  const asyncGlobalContext = createGeneratorContext(new Set(), new Set(), false, new Set(), true);
+  const preloadAssignments = [];
+  let injectedIntoPreload = false;
 
   for (const member of cls.members) {
     if (member.type !== "FieldDeclaration" || member.modifiers.includes("static")) {
       continue;
     }
+
+    if (member.initializer && containsAsyncLoaderCall(member.initializer)) {
+      lines.push(`let ${member.name} = undefined;`);
+      preloadAssignments.push(generateTopLevelLoaderInitializer(member.name, member.initializer, asyncGlobalContext));
+      continue;
+    }
+
     const initializer = member.initializer
       ? generateExpression(member.initializer, globalContext)
       : "undefined";
@@ -292,20 +302,73 @@ function generateFlattenedPdeClass(cls) {
     if (member.type !== "MethodDeclaration") {
       continue;
     }
+
+    if (member.name === "preload" && preloadAssignments.length > 0) {
+      lines.push(generateGlobalMethod(member, preloadAssignments));
+      injectedIntoPreload = true;
+      continue;
+    }
+
     lines.push(generateGlobalMethod(member));
+  }
+
+  if (preloadAssignments.length > 0 && !injectedIntoPreload) {
+    lines.push(generateGeneratedGlobalPreloadMethod(preloadAssignments));
   }
 
   return lines.join("\n");
 }
 
-function generateGlobalMethod(method) {
+function generateGlobalMethod(method, prependedStatements = []) {
   const params = method.params.map((p) => p.name).join(", ");
   const localNames = new Set(method.params.map((p) => p.name));
-  const isAsync = containsAsyncLoaderCall(method.body);
+  const isAsync = prependedStatements.length > 0 || containsAsyncLoaderCall(method.body);
   const context = createGeneratorContext(new Set(), localNames, false, new Set(), isAsync);
-  const body = generateBlock(method.body, 0, context);
+  const body = prependStatementsToBlock(generateBlock(method.body, 0, context), prependedStatements, 0);
   const asyncPrefix = isAsync ? "async " : "";
   return `${asyncPrefix}function ${method.name}(${params}) ${body}`;
+}
+
+function generateTopLevelLoaderInitializer(fieldName, initializerExpr, context) {
+  if (
+    initializerExpr &&
+    initializerExpr.type === "CallExpression" &&
+    initializerExpr.callee &&
+    initializerExpr.callee.type === "Identifier" &&
+    initializerExpr.callee.name === "loadImage"
+  ) {
+    const args = (initializerExpr.arguments ?? []).map((arg) => generateExpression(arg, context)).join(", ");
+    const loaderName = nextGeneratedTemp("loadImageFn");
+    const requestName = nextGeneratedTemp("imageRequest");
+    return `const ${loaderName} = (typeof globalThis.loadImage === "function") ? globalThis.loadImage : ((this && typeof this.loadImage === "function") ? this.loadImage.bind(this) : ((globalThis.p5 && globalThis.p5.prototype && typeof globalThis.p5.prototype.loadImage === "function") ? globalThis.p5.prototype.loadImage.bind(globalThis) : null)); if (!${loaderName}) { throw new Error("loadImage is not defined"); } const ${requestName} = ${loaderName}(${args}); if (${requestName} && typeof ${requestName}.then === "function") { ${fieldName} = await ${requestName}; } else { ${fieldName} = ${requestName}; }`;
+  }
+
+  const initializer = generateExpression(initializerExpr, context);
+  return `${fieldName} = ${initializer};`;
+}
+
+function generateGeneratedGlobalPreloadMethod(statements) {
+  const body = prependStatementsToBlock("{}", statements, 0);
+  return `async function preload() ${body}`;
+}
+
+function prependStatementsToBlock(block, statements, level) {
+  if (!Array.isArray(statements) || statements.length === 0) {
+    return block;
+  }
+
+  const prelude = statements.map((statement) => `${indent(level + 1)}${statement}`).join("\n");
+  const suffixIndent = indent(level);
+
+  if (block === "{}") {
+    return `{\n${prelude}\n${suffixIndent}}`;
+  }
+
+  if (block.startsWith("{\n")) {
+    return `{\n${prelude}\n${block.slice(2)}`;
+  }
+
+  return block;
 }
 
 function collectEffectiveInstanceFields(cls, classMap, visited = new Set()) {

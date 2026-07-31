@@ -104,11 +104,7 @@
               <button id="btnAddTab" class="tab-add" type="button" title="Add tab" aria-label="Add tab">+</button>
             </div>
             <div class="editor-body">
-              <pre id="lineNumbers" aria-hidden="true">1</pre>
-              <div class="code-area">
-                <pre id="highlightLayer" aria-hidden="true"></pre>
-                <textarea id="inputCode" spellcheck="false"></textarea>
-              </div>
+              <div id="inputCode" class="ace-editor-host" aria-label="Processing code editor"></div>
             </div>
           </div>
         </article>
@@ -118,12 +114,14 @@
             <span class="preview-title" id="previewTitle">Preview</span>
             <button id="btnPreviewClose" class="preview-close" type="button" aria-label="Stop preview" title="Stop">&times;</button>
           </header>
-          <iframe id="previewFrame" title="p5.js Preview" sandbox="allow-scripts" allow="accelerometer; gyroscope; magnetometer"></iframe>
+          <iframe id="previewFrame" title="p5.js Preview" allow="accelerometer; gyroscope; magnetometer"></iframe>
         </article>
       </section>
 
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.36.2/src-min-noconflict/ace.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.36.2/src-min-noconflict/ext-language_tools.js"></script>
     <script type="module" src="./src/browser-app.js"></script>
   </body>
 </html>

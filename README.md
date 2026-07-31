@@ -61,6 +61,7 @@ Key capabilities:
 - Expression grouping is preserved correctly (parenthesized output where needed).
 - Annotations (`@Override`, `@FunctionalInterface`, `@SuppressWarnings("x")`, `@org.junit.Test`, ...) are accepted anywhere and ignored (stripped during tokenization).
 - p5.js 2.0 async asset loaders (`loadImage`, `loadFont`, `loadJSON`, `loadStrings`, `loadTable`, `loadXML`, `loadBytes`, `loadModel`, `loadShader`, `loadShape`) are awaited, and their enclosing function is emitted as `async`. `requestImage(...)` (removed in p5 2.0) is rewritten to `await loadImage(...)`.
+- In `.pde` global-mode sketches, top-level async loader field initializers are moved into `preload()` so Processing-style patterns like `PImage img = loadImage("./data/pic.png");` load before drawing.
 
 ### 2) p5 Post-Transpiler
 
@@ -110,8 +111,11 @@ Features:
 
 p5.js loading strategy (preview and exported p5.js project use p5.js 2.x):
 
-1. local `vendor/p5.min.js`
-1. fallback to CDN (`p5@2.3.0`)
+1. CDN (`p5@2.3.0`)
+
+### Image loading note
+
+For browser preview, image loading requires HTTP (not direct `file://` loading). Relative paths in sketches (for example `./data/hacker.png`) are resolved against the app URL and supported in global `.pde` sketches, including top-level `PImage` initializers.
 
 ## CLI
 

@@ -1,6 +1,7 @@
-export function createPreviewHtml(jsCode) {
+export function createPreviewHtml(jsCode, assetBaseHref = "./") {
   const escapedCode = jsCode.replace(/<\/script>/gi, "<\\/script>");
   const serializedCode = JSON.stringify(escapedCode);
+  const serializedAssetBaseHref = JSON.stringify(assetBaseHref);
 
   return `<!doctype html>
 <html>
@@ -83,10 +84,17 @@ export function createPreviewHtml(jsCode) {
 
       (function patchLogging() {
         var originalConsoleLog = console.log ? console.log.bind(console) : null;
+        var originalConsoleError = console.error ? console.error.bind(console) : null;
         console.log = function patchedConsoleLog() {
           emitStatusLog.apply(null, arguments);
           if (originalConsoleLog) {
             originalConsoleLog.apply(null, arguments);
+          }
+        };
+        console.error = function patchedConsoleError() {
+          emitStatusLog.apply(null, arguments);
+          if (originalConsoleError) {
+            originalConsoleError.apply(null, arguments);
           }
         };
 
@@ -104,9 +112,24 @@ export function createPreviewHtml(jsCode) {
         el.style.display = "block";
         el.textContent = "Preview error: " + (event.message || "Unknown error");
       });
+
+      window.addEventListener("unhandledrejection", function (event) {
+        var reason = event && event.reason ? event.reason : "Unknown promise rejection";
+        var message = typeof reason === "string" ? reason : (reason && reason.message ? reason.message : String(reason));
+        emitStatusLog("Preview rejection:", message);
+      });
     <\/script>
-    <script src="./processing-defs.js"><\/script>
     <script>
+      var p5forgeAssetBaseHref = ${serializedAssetBaseHref};
+
+      function resolveAssetUrl(path) {
+        try {
+          return new URL(path, p5forgeAssetBaseHref).toString();
+        } catch {
+          return path;
+        }
+      }
+
       function loadScript(src, onLoad, onError) {
         var script = document.createElement("script");
         script.src = src;
@@ -122,6 +145,26 @@ export function createPreviewHtml(jsCode) {
       }
 
       function runSketch() {
+        function patchImageGuard() {
+          if (!window.p5 || !window.p5.prototype || window.__p5forgePatchedImageGuard) {
+            return;
+          }
+
+          const originalImage = window.p5.prototype.image;
+          if (typeof originalImage !== "function") {
+            return;
+          }
+
+          window.p5.prototype.image = function patchedImage(img, ...rest) {
+            if (img === undefined || img === null) {
+              return;
+            }
+            return originalImage.call(this, img, ...rest);
+          };
+
+          window.__p5forgePatchedImageGuard = true;
+        }
+
         function installTouchMouseBridge(target) {
           const canvas = target && target.elt ? target.elt : target;
           if (!canvas || typeof canvas.addEventListener !== "function" || canvas.__p5forgeTouchMouseBridgeInstalled) {
@@ -198,24 +241,54 @@ export function createPreviewHtml(jsCode) {
           window.__p5forgePatchedCreateCanvas = true;
         }
 
+        patchImageGuard();
+
         var sketchCode = ${serializedCode};
         var sketchScript = document.createElement("script");
         sketchScript.textContent = sketchCode;
         document.body.appendChild(sketchScript);
+
+        // In this srcdoc boot flow, p5 global mode may start before user code
+        // defines preload(). If so, preload is never called and async asset
+        // fields stay undefined. Fallback: trigger preload once when p5 did not.
+        if (typeof window.preload === "function" && !window.__p5forgePatchedPreloadFallback) {
+          const originalPreload = window.preload;
+          window.__p5forgePreloadCalled = false;
+          window.preload = async function patchedPreloadFallback(...args) {
+            window.__p5forgePreloadCalled = true;
+            return originalPreload.apply(this, args);
+          };
+          window.__p5forgePatchedPreloadFallback = true;
+
+          setTimeout(() => {
+            if (window.__p5forgePreloadCalled) {
+              return;
+            }
+            Promise.resolve(window.preload()).catch((error) => {
+              console.error(error);
+            });
+          }, 0);
+        }
       }
 
       function loadP5AndRun() {
+        var defsUrl = resolveAssetUrl("processing-defs.js");
+
+        function loadDefsAndRun() {
+          loadScript(
+            defsUrl,
+            runSketch,
+            function () {
+              showBootError("Failed to load processing-defs.js.");
+            }
+          );
+        }
+
         loadScript(
-          "./vendor/p5.min.js",
-          runSketch,
+          "https://cdn.jsdelivr.net/npm/p5@2.3.0/lib/p5.min.js",
+          loadDefsAndRun,
           function () {
-            loadScript(
-              "https://cdn.jsdelivr.net/npm/p5@2.3.0/lib/p5.min.js",
-              runSketch,
-              function () {
-                showBootError("Failed to load p5.js from local vendor and CDN.");
-              }
-            );
+            showBootError("Failed to load p5.js from CDN.");
           }
         );
       }
