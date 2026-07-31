@@ -2,6 +2,7 @@
 // Enough to bundle a handful of small text files into a downloadable archive.
 
 const encoder = new TextEncoder();
+const decoder = new TextDecoder("utf-8");
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -25,6 +26,98 @@ function crc32(bytes) {
 
 function toBytes(content) {
   return content instanceof Uint8Array ? content : encoder.encode(String(content));
+}
+
+function readUint16(view, offset) {
+  return view.getUint16(offset, true);
+}
+
+function readUint32(view, offset) {
+  return view.getUint32(offset, true);
+}
+
+async function inflateRawBytes(bytes) {
+  if (typeof DecompressionStream !== "function") {
+    throw new Error("Compressed .pdez files are not supported in this browser.");
+  }
+
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  const buffer = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
+// Minimal ZIP reader for project import (supports STORE and DEFLATE entries).
+// Returns: Array<{ name: string, content: Uint8Array }>
+export async function readZipEntries(blob) {
+  const buffer = await blob.arrayBuffer();
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+  const entries = [];
+
+  let offset = 0;
+  const LOCAL_FILE_HEADER = 0x04034b50;
+  const CENTRAL_DIRECTORY_HEADER = 0x02014b50;
+  const END_OF_CENTRAL_DIRECTORY = 0x06054b50;
+
+  while (offset + 4 <= view.byteLength) {
+    const signature = readUint32(view, offset);
+
+    if (signature === CENTRAL_DIRECTORY_HEADER || signature === END_OF_CENTRAL_DIRECTORY) {
+      break;
+    }
+
+    if (signature !== LOCAL_FILE_HEADER) {
+      // Not a local file header, stop parsing.
+      break;
+    }
+
+    if (offset + 30 > view.byteLength) {
+      throw new Error("Invalid ZIP header.");
+    }
+
+    const flags = readUint16(view, offset + 6);
+    const compressionMethod = readUint16(view, offset + 8);
+    const compressedSize = readUint32(view, offset + 18);
+    const uncompressedSize = readUint32(view, offset + 22);
+    const fileNameLength = readUint16(view, offset + 26);
+    const extraLength = readUint16(view, offset + 28);
+
+    // Data descriptor mode requires central-directory parsing; unsupported here.
+    if ((flags & 0x0008) !== 0) {
+      throw new Error("ZIP data descriptors are not supported for import.");
+    }
+
+    const nameStart = offset + 30;
+    const nameEnd = nameStart + fileNameLength;
+    const extraEnd = nameEnd + extraLength;
+    const dataStart = extraEnd;
+    const dataEnd = dataStart + compressedSize;
+
+    if (dataEnd > view.byteLength) {
+      throw new Error("Invalid ZIP entry size.");
+    }
+
+    const name = decoder.decode(bytes.slice(nameStart, nameEnd));
+    const compressedBytes = bytes.slice(dataStart, dataEnd);
+
+    let content;
+    if (compressionMethod === 0) {
+      content = compressedBytes;
+    } else if (compressionMethod === 8) {
+      content = await inflateRawBytes(compressedBytes);
+    } else {
+      throw new Error(`Unsupported ZIP compression method: ${compressionMethod}`);
+    }
+
+    if (uncompressedSize !== 0 && content.length !== uncompressedSize) {
+      throw new Error(`ZIP entry size mismatch for ${name}`);
+    }
+
+    entries.push({ name, content });
+    offset = dataEnd;
+  }
+
+  return entries;
 }
 
 // files: Array<{ name: string, content: string | Uint8Array }>

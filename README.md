@@ -104,6 +104,7 @@ Features:
 - Console-style status area that collects log/`println` output
 - Autosave: all tabs (names + code) are persisted to browser local storage and restored on reload
 - Load/Save `.pde` (operates on the active tab)
+- Import `.pdez` / `.zip` Processing projects: all contained `.pde` files are loaded into separate tabs (archive order preserved)
 - Export the whole sketch as a **p5.js project** (ZIP: `index.html`, `sketch.js`, `processing-defs.js`)
 - Export the whole sketch as a **Processing project** (ZIP: a sketch folder with one `.pde` per tab)
 - Hamburger menu in the header with an `About` dialog

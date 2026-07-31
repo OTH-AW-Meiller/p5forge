@@ -44,7 +44,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 6L19 12L8 18Z" /></svg>
           </button>
           <span class="hotkey-hint" aria-hidden="true">F5</span>
-          <input id="fileInputPde" type="file" accept=".pde,text/plain" hidden />
+          <input id="fileInputPde" type="file" accept=".pde,.pdez,.zip,text/plain,application/zip" hidden />
           <div class="menu" id="appMenu">
             <button id="btnMenu" class="icon-btn btn-secondary menu-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menuDropdown" aria-label="Menu" title="Menu">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -55,10 +55,10 @@
             </button>
             <div class="menu-dropdown" id="menuDropdown" role="menu" hidden>
               <button id="btnNewSketch" class="menu-item" role="menuitem" type="button">New Sketch</button>
-              <button id="btnLoad" class="menu-item" role="menuitem" type="button">Load .pde</button>
+              <button id="btnLoad" class="menu-item" role="menuitem" type="button">Load .pde / .pdez (.zip)</button>
               <button id="btnSave" class="menu-item" role="menuitem" type="button">Save .pde</button>
               <button id="btnExportJs" class="menu-item" role="menuitem" type="button">Export p5.js Project</button>
-              <button id="btnExportProcessing" class="menu-item" role="menuitem" type="button">Export Processing Project</button>
+              <button id="btnExportProcessing" class="menu-item" role="menuitem" type="button">Export Processing Project (.pdez)</button>
               <button id="btnHelp" class="menu-item" role="menuitem" type="button">Help</button>
               <button id="btnAbout" class="menu-item" role="menuitem" type="button">About</button>
             </div>

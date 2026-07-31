@@ -2,7 +2,7 @@ import { compileSource } from "./compiler/compiler.js";
 import { transpileProcessingApiToP5 } from "./p5-post-transpiler.js";
 import { createPreviewHtml } from "./preview-template.js";
 import { bindGlobalHotkeys } from "./keyboard-handlers.js";
-import { createZipBlob } from "./zip.js";
+import { createZipBlob, readZipEntries } from "./zip.js";
 
 const inputCode = document.getElementById("inputCode");
 const tabStrip = document.getElementById("tabStrip");
@@ -550,6 +550,13 @@ async function handleLoadPde(event) {
   }
 
   try {
+    const lowerName = (file.name || "").toLowerCase();
+
+    if (lowerName.endsWith(".pdez") || lowerName.endsWith(".zip")) {
+      await importPdezFile(file);
+      return;
+    }
+
     const text = await file.text();
     const tab = getActiveTab();
     if (tab) {
@@ -564,6 +571,57 @@ async function handleLoadPde(event) {
   } catch (error) {
     setStatus(`Load failed: ${error.message}`);
   }
+}
+
+function decodeZipEntryText(bytes) {
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function normalizeImportedTabName(path) {
+  const leaf = String(path || "").split("/").filter(Boolean).pop() || "sketch.pde";
+  return normalizePdeFileName(leaf);
+}
+
+function makeUniqueTabName(name, usedNames) {
+  const base = normalizePdeFileName(name).replace(/\.pde$/i, "");
+  let candidate = `${base}.pde`;
+  let suffix = 2;
+  while (usedNames.has(candidate.toLowerCase())) {
+    candidate = `${base}_${suffix}.pde`;
+    suffix += 1;
+  }
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
+}
+
+async function importPdezFile(file) {
+  const entries = await readZipEntries(file);
+  const pdeEntries = entries
+    .filter((entry) => /\.pde$/i.test(entry.name) && !entry.name.endsWith("/"))
+    .map((entry) => ({
+      path: entry.name,
+      text: decodeZipEntryText(entry.content)
+    }));
+
+  if (pdeEntries.length === 0) {
+    throw new Error("No .pde files found in archive.");
+  }
+
+  // Preserve archive order so the first PDE remains the main sketch tab.
+  const usedNames = new Set();
+  tabs = pdeEntries.map((entry) => {
+    const tabName = makeUniqueTabName(normalizeImportedTabName(entry.path), usedNames);
+    return makeTab(tabName, entry.text);
+  });
+
+  activeTabId = tabs[0].id;
+  renderTabs();
+  loadActiveTabIntoEditor();
+  persistTabs();
+  stopPreviewOnEdit();
+
+  runTranspile();
+  setStatus(`Imported ${file.name} (${tabs.length} tab${tabs.length === 1 ? "" : "s"}).`);
 }
 
 async function savePde() {
@@ -733,8 +791,8 @@ function exportProcessingProject() {
     });
 
     const blob = createZipBlob(files);
-    downloadBlob(blob, `${base}.zip`);
-    setStatus(`Exported ${base}.zip (Processing project).`);
+    downloadBlob(blob, `${base}.pdez`);
+    setStatus(`Exported ${base}.pdez (Processing project).`);
   } catch (error) {
     setStatus(`Export failed: ${error.message}`);
   }
