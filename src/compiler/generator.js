@@ -595,6 +595,8 @@ function generateBlock(block, level, context) {
 
 function generateStatement(stmt, level, context) {
   switch (stmt.type) {
+    case "EmptyStatement":
+      return `${indent(level)};`;
     case "BlockStatement":
       return `${indent(level)}${generateBlock(stmt, level, context)}`;
     case "VariableDeclaration": {

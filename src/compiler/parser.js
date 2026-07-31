@@ -620,6 +620,11 @@ export function parse(tokens) {
   }
 
   function parseStatement() {
+    // Java/Processing allows empty statements, e.g. stray ';' in blocks.
+    if (match("symbol", ";")) {
+      return { type: "EmptyStatement" };
+    }
+
     if (check("symbol", "{")) {
       return parseBlockStatement();
     }
