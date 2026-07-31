@@ -624,6 +624,59 @@ async function importPdezFile(file) {
   setStatus(`Imported ${file.name} (${tabs.length} tab${tabs.length === 1 ? "" : "s"}).`);
 }
 
+function mapGithubBlobUrlToRaw(url) {
+  if (url.hostname !== "github.com") {
+    return url;
+  }
+
+  const parts = url.pathname.split("/").filter(Boolean);
+  if (parts.length < 5 || parts[2] !== "blob") {
+    return url;
+  }
+
+  const owner = parts[0];
+  const repo = parts[1];
+  const branch = parts[3];
+  const path = parts.slice(4).join("/");
+  return new URL(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`);
+}
+
+function inferPdezFilenameFromUrl(url) {
+  const leaf = url.pathname.split("/").filter(Boolean).pop() || "import.pdez";
+  return /\.(pdez|zip)$/i.test(leaf) ? leaf : `${leaf}.pdez`;
+}
+
+async function importPdezFromUrl(inputUrl) {
+  const parsed = new URL(String(inputUrl), window.location.href);
+  const fetchUrl = mapGithubBlobUrlToRaw(parsed);
+  const response = await fetch(fetchUrl.toString(), { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Could not fetch ${fetchUrl} (HTTP ${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const filename = inferPdezFilenameFromUrl(fetchUrl);
+  const file = new File([blob], filename, { type: "application/zip" });
+  await importPdezFile(file);
+}
+
+async function tryImportPdezFromQuery() {
+  const params = new URLSearchParams(window.location.search);
+  const pdezUrl = params.get("pdez");
+  if (!pdezUrl) {
+    return false;
+  }
+
+  try {
+    await importPdezFromUrl(pdezUrl);
+    setStatus(`Imported pdez from URL parameter.`);
+    return true;
+  } catch (error) {
+    setStatus(`pdez URL import failed: ${error.message}`);
+    return false;
+  }
+}
+
 async function savePde() {
   try {
     commitEditorToActiveTab();
@@ -999,6 +1052,12 @@ window.addEventListener("beforeunload", persistTabs);
 
 async function initializeApp() {
   createAceEditor();
+
+  const importedFromQuery = await tryImportPdezFromQuery();
+  if (importedFromQuery) {
+    return;
+  }
+
   const persisted = loadPersistedTabs();
 
   if (persisted) {
