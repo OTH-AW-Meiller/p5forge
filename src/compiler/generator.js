@@ -94,7 +94,8 @@ function createGeneratorContext(
     instanceMethodNames,
     localNames,
     inStaticMethod,
-    isAsync
+    isAsync,
+    isSketchGlobal: false
   };
 }
 
@@ -104,7 +105,8 @@ function cloneContextWithLocalNames(context, localNames) {
     instanceMethodNames: context.instanceMethodNames,
     localNames,
     inStaticMethod: context.inStaticMethod,
-    isAsync: context.isAsync
+    isAsync: context.isAsync,
+    isSketchGlobal: context.isSketchGlobal
   };
 }
 
@@ -278,6 +280,8 @@ function generateFlattenedPdeClass(cls) {
   const lines = [];
   const globalContext = createGeneratorContext(new Set(), new Set(), false);
   const asyncGlobalContext = createGeneratorContext(new Set(), new Set(), false, new Set(), true);
+  globalContext.isSketchGlobal = true;
+  asyncGlobalContext.isSketchGlobal = true;
   const preloadAssignments = [];
   let injectedIntoPreload = false;
 
@@ -324,6 +328,7 @@ function generateGlobalMethod(method, prependedStatements = []) {
   const localNames = new Set(method.params.map((p) => p.name));
   const isAsync = prependedStatements.length > 0 || containsAsyncLoaderCall(method.body);
   const context = createGeneratorContext(new Set(), localNames, false, new Set(), isAsync);
+  context.isSketchGlobal = true;
   const body = prependStatementsToBlock(generateBlock(method.body, 0, context), prependedStatements, 0);
   const asyncPrefix = isAsync ? "async " : "";
   return `${asyncPrefix}function ${method.name}(${params}) ${body}`;
@@ -784,6 +789,10 @@ function generateExpression(expr, context = null) {
       const mapped = mapSpecialMemberChain(expr);
       if (mapped) {
         return mapped;
+      }
+      // In a Processing sketch, `this.x` in a top-level function refers to the global `x`.
+      if (context && context.isSketchGlobal && expr.object.type === "ThisExpression") {
+        return expr.property;
       }
       return `${generateExpression(expr.object, context)}.${expr.property}`;
     }
